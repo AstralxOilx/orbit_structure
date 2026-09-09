@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { ArrowUpRight, MessageSquare, Sparkles } from "lucide-react";
-import { Avatar, EmptyState } from "@/shared/ui";
+import { EmptyState } from "@/shared/ui";
 import { MEMBERS, PROJECTS } from "./data";
 import type { Task } from "../tasks/domain/task";
 

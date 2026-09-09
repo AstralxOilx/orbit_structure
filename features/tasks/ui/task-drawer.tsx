@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import dynamic from "next/dynamic";
 import {
   ArrowUpRight,
@@ -17,7 +19,7 @@ import {
 } from "lucide-react";
 import { useRepository, useTask } from "@/features/workspace/provider";
 import { MEMBERS, PROJECTS, TAG_COLORS } from "@/features/workspace/data";
-import { Avatar, Dialog, StatusIcon } from "@/shared/ui";
+import { Dialog } from "@/shared/ui";
 import {
   STATUSES,
   STATUS_META,

@@ -1,0 +1,48 @@
+:root {
+  --scrollbar-thumb: #b3acc9;
+  --scrollbar-thumb-hover: #8b7cac;
+  --scrollbar-track: transparent;
+  --sidebar-scrim: #19142966;
+}
+
+[data-theme="dark"] {
+  --scrollbar-thumb: #454468;
+  --scrollbar-thumb-hover: #8175b6;
+  --sidebar-scrim: #02030bb3;
+}
+
+/* Native scrolling, shared colors: works in Firefox and Chromium/WebKit. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.sidebar-scroll:hover,
+.sidebar-scroll:focus-within {
+  scrollbar-color: var(--scrollbar-thumb-hover) var(--scrollbar-track);
+}
+
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
+}

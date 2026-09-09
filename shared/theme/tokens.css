@@ -1,0 +1,118 @@
+:root {
+  color-scheme: light;
+
+  /* พื้นหลังฟ้าอมม่วงอ่อน */
+  --canvas: #f5f6fd;
+  --surface: #ffffff;
+  --sidebar: #f9fafe;
+  --column-bg: #eef0fb;
+  --surface-hover: #e9ecfa;
+
+  /* ตัวอักษร */
+  --ink: #131530;
+  --secondary: #4b5075;
+  --muted: #6a6f99;
+  --faint: #8a8fb4;
+
+  /* เส้นขอบ */
+  --border: #e4e7f7;
+  --border-strong: #cbd0ec;
+  --card-border: #dde0f3;
+  --card-hover: #a9a6f5;
+
+  /* สีม่วงจักรวาลสำหรับ Button และ Active */
+  --accent: #5b4bd6;
+  --accent-hover: #4a39c4;
+  --accent-soft: #ecebfd;
+  --accent-border: #b6aef4;
+  --accent-foreground: #ffffff;
+
+  /* พื้นหลังส่วนพิเศษ */
+  --green-soft: #ecf0fe;
+  --note-bg: #f4f5fe;
+  --note-border: #dee1f6;
+
+  --scrollbar: #c4c8e9;
+  --popover-shadow: 0 8px 35px #1a1f4a14, 0 2px 5px #1a1f4a0a;
+
+  /* ── COSMIC TOKENS ── */
+  --star: #6b74d8;
+  --star-dim: #a8adf0;
+  --nebula-1: #7c6cff;
+  /* ม่วง */
+  --nebula-2: #ff6ec7;
+  /* ชมพูแมกเจนตา */
+  --nebula-3: #34c8f0;
+  /* ฟ้าไซแอน */
+  --nebula-alpha: 0.22;
+  --void: #e8ebfa;
+  --glow: 0 0 0 1px #5b4bd61f, 0 8px 30px #5b4bd626;
+  --glow-strong: 0 0 24px #5b4bd63d, 0 0 60px #7c6cff29;
+  --cosmic-gradient: linear-gradient(135deg,
+      #5b4bd6 0%,
+      #8b5cf6 45%,
+      #22a3d8 100%);
+  --grid-line: #5b4bd60f;
+}
+
+/* ═══════════════════════════════════════════════════
+   DEEP SPACE — ห้วงอวกาศลึก
+   ═══════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* พื้นหลังดำอมน้ำเงิน */
+  --canvas: radial-gradient(ellipse at 42% 42%, #21154265, transparent 65%),
+    linear-gradient(155deg, #101014, #121117 70%, #0b0b0e);
+  --surface: #101014;
+  --sidebar: #0b0b0f;
+  --column-bg: #141a3340;
+  --surface-hover: #1a1f3d7d;
+
+  /* ตัวอักษร */
+  --ink: #eef0ff;
+  --secondary: #b4bade;
+  --muted: #8c92ba;
+  --faint: #6f76a2;
+
+  /* เส้นขอบ */
+  --border: #24273b;
+  --border-strong: #191b2e;
+  --card-border: #070f4f;
+  --card-hover: #5d64bd;
+
+  /* สีม่วงเรืองแสง */
+  --accent: #9064d5;
+  --accent-hover: #a496ff;
+  --accent-soft: #1a1846;
+  --accent-border: #4a3faa;
+  --accent-foreground: #06071a;
+
+  /* พื้นหลังส่วนพิเศษ */
+  --green-soft: #141433;
+  --note-bg: #10132b;
+  --note-border: #262c56;
+
+  --scrollbar: #3b4180;
+  --popover-shadow: 0 8px 35px #000000b3, 0 0 0 1px #ffffff0a;
+
+  /* ── COSMIC TOKENS ── */
+  --star: #ffffff;
+  --star-dim: #b9c0ff;
+  --nebula-1: #7b5cff;
+  --nebula-2: #ff4fa8;
+  --nebula-3: #21d4fd;
+  --nebula-alpha: 0.38;
+  --void: #05060f;
+  --glow: 0 0 0 1px #8b7bff2e, 0 8px 30px #8b7bff1f;
+  --glow-strong: 0 0 26px #8b7bff59, 0 0 70px #7b5cff33;
+  --cosmic-gradient: linear-gradient(135deg,
+      #8b7bff 0%,
+      #c46bff 45%,
+      #21d4fd 100%);
+  --grid-line: #ffffff0a;
+}
+
+/* ═══════════════════════════════════════════════════
+   THEME BRIDGE
+   ═══════════════════════════════════════════════════ */

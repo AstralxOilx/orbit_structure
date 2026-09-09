@@ -1,16 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { PriorityBadge } from "@/features/tasks/ui/priority-badge";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
+import { TaskTag as Tag } from "@/features/tasks/ui/task-tag";
+import { formatDate } from "@/shared/lib/format-date";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
-import {
-  Avatar,
-  PriorityBadge,
-  StatusIcon,
-  Tag,
-  formatDate,
-  EmptyState,
-} from "@/shared/ui";
+import { EmptyState } from "@/shared/ui";
 import { useRepository } from "@/features/workspace/provider";
 import {
   STATUSES,

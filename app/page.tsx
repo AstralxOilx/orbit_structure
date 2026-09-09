@@ -1,5 +1,9 @@
-import WorkspaceApp from "@/features/workspace/workspace";
+ 
 
-export default function Home() {
-  return <WorkspaceApp />;
+ 
+export default function AuthPage() { 
+
+  return (
+    <div>Home</div>
+  );
 }

@@ -1,59 +1,31 @@
 @import "tailwindcss";
+@import "../shared/theme/tokens.css";
+@import "../shared/theme/auth-tokens.css";
+@import "../shared/ui/styles.css";
 @import "../shared/workspace.css";
+@import "../features/workspace/sidebar.css";
+@import "../shared/theme/scrollbars.css";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-:root {
-  color-scheme: light;
-  --canvas: #f8f8fb;
-  --surface: #ffffff;
-  --sidebar: #fcfcfe;
-  --surface-hover: #f2f1f6;
-  --ink: #302d3b;
-  --secondary: #686474;
-  --muted: #716b7e;
-  --faint: #746c7e;
-  --border: #eeedf2;
-  --border-strong: #e5e2eb;
-  --card-border: #e9e7ef;
-  --card-hover: #d1c9e1;
-  --column-bg: #f4f3f7;
-  --accent: #7253bb;
-  --accent-hover: #6d52b5;
-  --accent-soft: #f1ecfa;
-  --accent-border: #ddd2f0;
-  --green-soft: #f0f7f2;
-  --note-bg: #f6f2fc;
-  --note-border: #ece4f6;
-  --scrollbar: #ddd9e7;
-  --popover-shadow: 0 8px 35px #30204012, 0 2px 5px #30204007;
-}
-[data-theme="dark"] {
-  color-scheme: dark;
-  --canvas: #15141c;
-  --surface: #1c1b25;
-  --sidebar: #191820;
-  --surface-hover: #292632;
-  --ink: #e8e5f0;
-  --secondary: #beb7cd;
-  --muted: #a29aad;
-  --faint: #a39bae;
-  --border: #2b2835;
-  --border-strong: #3b3548;
-  --card-border: #353040;
-  --card-hover: #615074;
-  --column-bg: #1b1923;
-  --accent: #a38be0;
-  --accent-hover: #9176d2;
-  --accent-soft: #30253f;
-  --accent-border: #4d3c68;
-  --green-soft: #23362c;
-  --note-bg: #251f33;
-  --note-border: #393049;
-  --scrollbar: #443b53;
-  --popover-shadow: 0 8px 35px #0005;
-}
 @theme inline {
   --color-background: var(--canvas);
   --color-foreground: var(--ink);
+  --color-surface: var(--surface);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-nebula-1: var(--nebula-1);
+  --color-nebula-2: var(--nebula-2);
+  --color-nebula-3: var(--nebula-3);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --animate-twinkle: twinkle 4s ease-in-out infinite;
+  --animate-drift: drift 26s ease-in-out infinite;
+  --animate-orbit: orbit 18s linear infinite;
+  --animate-shoot: shoot 7s ease-in infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3.5s ease-in-out infinite;
 }

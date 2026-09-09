@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, memo } from "react";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import {
   DragDropProvider,
   DragOverlay,
@@ -27,7 +28,7 @@ import {
   type Task,
   type TaskStatus,
 } from "../domain/task";
-import { IconButton, StatusIcon } from "@/shared/ui";
+import { IconButton } from "@/shared/ui";
 import { useRepository } from "@/features/workspace/provider";
 
 // Virtualizer owns DOM placement. Disable imperative optimistic DOM reparenting.

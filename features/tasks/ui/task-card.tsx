@@ -1,6 +1,10 @@
 "use client";
 
 import { memo } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { TaskTag as Tag } from "@/features/tasks/ui/task-tag";
+import { PriorityBadge } from "@/features/tasks/ui/priority-badge";
+import { formatDate } from "@/shared/lib/format-date";
 import {
   CalendarDays,
   Check,
@@ -9,7 +13,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useRepository, useTask } from "@/features/workspace/provider";
-import { Avatar, Tag, PriorityBadge, formatDate } from "@/shared/ui";
+
 import { STATUSES, STATUS_META, type TaskStatus } from "../domain/task";
 
 export function CoverArt({ type }: { type: "website" | "palette" }) {

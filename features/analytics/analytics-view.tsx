@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import {
   Area,
   AreaChart,
@@ -20,7 +22,7 @@ import {
   Layers3,
   UsersRound,
 } from "lucide-react";
-import { Avatar, StatusIcon } from "@/shared/ui";
+
 import { MEMBERS, PROJECTS } from "@/features/workspace/data";
 import { STATUSES, STATUS_META, type Task } from "@/features/tasks/domain/task";
 

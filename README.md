@@ -2,6 +2,14 @@
 
 A working Next.js frontend for projects, tasks and teams, with a virtualized Kanban board, list, timeline, dashboard and collaborative task descriptions.
 
+The account UI is available at [/auth](http://localhost:3000/auth), and the workspace is at [/workspace](http://localhost:3000/workspace).
+
+The app-wide theme and reusable UI components are documented in [Shared UI and theme](docs/shared-ui-and-theme.md). Login, Sign Up and Workspace share Light/Dark/System preferences; controls live in `shared/theme` and generic components in `shared/ui`.
+
+The dark account screen includes responsive split-screen branding, Login / Sign Up tabs with Framer Motion, keyboard navigation, password visibility, registration strength feedback, and React Hook Form / Zod validation. Social sign-in, recovery and registration currently explain their preview status; no credentials are logged, persisted or submitted, and no account or verification email is created. Connect an authentication service before enabling real account access. Workspace navigation remains available through the explicit demo link.
+
+Run `npx playwright test tests/e2e/auth.spec.ts` with the dev server running to verify account interactions, accessibility and the sidebar width transition. Animations honor reduced-motion preferences. The tab indicator uses [Motion shared layout animation](https://motion.dev/docs/react-layout-animations), and form panels use [AnimatePresence](https://motion.dev/docs/react-animate-presence).
+
 ## Run
 
 Use Node.js 22.18+ (Node 25 was used for validation).

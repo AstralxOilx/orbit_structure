@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import { ArrowUpRight, CheckCheck, Search } from "lucide-react";
-import { Avatar, Dialog, EmptyState, OrbitMark, StatusIcon } from "@/shared/ui";
+import { Dialog, EmptyState, OrbitMark } from "@/shared/ui";
 import { MEMBERS, PROJECTS } from "./data";
-import { useWorkspaceUI } from "./ui-store";
+import { ThemeSelect } from "@/shared/theme/theme-select";
 import type { WorkspaceModal } from "./sidebar";
 import type { Task } from "../tasks/domain/task";
 
@@ -29,25 +31,9 @@ export function WorkspaceModals({
   density: string;
   setDensity: (value: string) => void;
 }) {
-  const theme = useWorkspaceUI((state) => state.theme);
   const [query, setQuery] = useState("");
   const project = PROJECTS.find((value) => value.id === projectId)!;
-  const appearance = (
-    <label className="form-label">
-      Appearance
-      <select
-        value={theme}
-        onChange={(event) =>
-          useWorkspaceUI
-            .getState()
-            .setTheme(event.target.value as "light" | "dark")
-        }
-      >
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </label>
-  );
+  const appearance = <ThemeSelect className="form-label" />;
   if (modal === "search") {
     const results = tasks
       .filter((task) =>

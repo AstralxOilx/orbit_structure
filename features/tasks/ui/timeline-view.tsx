@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
+import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { Avatar, IconButton, StatusIcon } from "@/shared/ui";
+import { IconButton } from "@/shared/ui";
 import { STATUS_META, type Task } from "../domain/task";
 import { useRepository } from "@/features/workspace/provider";
 

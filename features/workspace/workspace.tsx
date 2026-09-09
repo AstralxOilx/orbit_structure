@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { Avatar, EmptyState, IconButton, ViewSkeleton } from "@/shared/ui";
+import { EmptyState, IconButton, ViewSkeleton } from "@/shared/ui";
 import {
   DEFAULT_FILTERS,
   type Priority,
@@ -83,7 +84,6 @@ function Workspace() {
   const save = useSaveState();
   const collapsed = useWorkspaceUI((state) => state.collapsed);
   const mobileNav = useWorkspaceUI((state) => state.mobileNav);
-  const theme = useWorkspaceUI((state) => state.theme);
   const [modal, setModal] = useState<WorkspaceModal>(null);
   const [newStatus, setNewStatus] = useState<TaskStatus | null>(null);
   const [toast, setToast] = useState("");
@@ -217,18 +217,13 @@ function Workspace() {
 
   useEffect(() => {
     try {
-      const savedTheme = localStorage.getItem("orbit.theme");
       useWorkspaceUI.setState({
-        theme: savedTheme === "dark" ? "dark" : "light",
         collapsed: localStorage.getItem("orbit.sidebar") === "collapsed",
       });
     } catch {
       /* Preferences are optional. */
     }
   }, []);
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   useEffect(() => {
     if (!toast) return;
@@ -280,13 +275,13 @@ function Workspace() {
       <a href="#workspace-main" className="skip-link">
         Skip to workspace
       </a>
-      {mobileNav && (
-        <button
-          className="mobile-nav-scrim"
-          aria-label="Close navigation"
-          onClick={() => useWorkspaceUI.getState().setMobileNav(false)}
-        />
-      )}
+      <button
+        className="mobile-nav-scrim"
+        aria-hidden={!mobileNav}
+        tabIndex={-1}
+        aria-label="Close navigation"
+        onClick={() => useWorkspaceUI.getState().setMobileNav(false)}
+      />
       <Sidebar
         page={page}
         projectId={projectId}
@@ -310,6 +305,8 @@ function Workspace() {
             <IconButton
               className="mobile-menu-button"
               label="Open navigation"
+              aria-expanded={mobileNav}
+              aria-controls="workspace-sidebar"
               onClick={() => useWorkspaceUI.getState().setMobileNav(true)}
             >
               <Menu size={20} />

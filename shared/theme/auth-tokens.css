@@ -1,0 +1,55 @@
+/* Auth's visual palette is theme-aware but keeps its own art direction. */
+:root {
+  --auth-bg: #fcfbfe;
+  --auth-surface: #f2eff8;
+  --auth-input: #ffffff;
+  --auth-ink: #252033;
+  --auth-label: #4c435d;
+  --auth-muted: #6d637a;
+  --auth-placeholder: #786e84;
+  --auth-border: #d8d0e4;
+  --auth-border-hover: #a490bc;
+  --auth-accent: #7950b6;
+  --auth-link: #7245a9;
+  --auth-link-hover: #522a84;
+  --auth-tab: #ffffff;
+  --auth-error: #b32d4b;
+  --auth-success: #187552;
+  --auth-notice-ink: #624282;
+  --auth-story:
+    radial-gradient(ellipse at 42% 42%, #a887dc26, transparent 65%),
+    linear-gradient(155deg, #f3effb, #ece5f7 70%, #f5edf9);
+  --auth-heading-gradient: linear-gradient(
+    100deg,
+    #604187,
+    #8953b7 60%,
+    #7244a3
+  );
+}
+[data-theme="dark"] {
+  --auth-bg: #1e1e23;
+  --auth-surface: #1b1b21;
+  --auth-input: #18181e;
+  --auth-ink: #f4f4f5;
+  --auth-label: #d4d4d8;
+  --auth-muted: #a1a1aa;
+  --auth-placeholder: #898994;
+  --auth-border: #35343f;
+  --auth-border-hover: #625672;
+  --auth-accent: #a78bfa;
+  --auth-link: #c4b5fd;
+  --auth-link-hover: #ede9fe;
+  --auth-tab: #323039;
+  --auth-error: #fda4af;
+  --auth-success: #6ee7b7;
+  --auth-notice-ink: #d2c7ed;
+  --auth-story:
+    radial-gradient(ellipse at 42% 42%, #21154265, transparent 65%),
+    linear-gradient(155deg, #101014, #121117 70%, #0b0b0e);
+  --auth-heading-gradient: linear-gradient(
+    100deg,
+    #ded2ff 10%,
+    #ad8ce9 60%,
+    #9064d5
+  );
+}
