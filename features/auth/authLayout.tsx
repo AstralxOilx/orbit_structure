@@ -6,6 +6,8 @@ import { ThemeToggle } from "@/shared/theme/theme-toggle";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, Layers3, Sparkles, Orbit } from "lucide-react";
 import type { AuthInfo } from "./auth-info";
+import { LanguageSwitcher } from "@/shared/ui";
+import { useTranslation } from "react-i18next";
 
 export function AuthLayout({
   children,
@@ -18,44 +20,41 @@ export function AuthLayout({
   onTabChange: (tab: "login" | "register") => void;
   onInfo: (info: AuthInfo) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="auth-shell min-h-dvh lg:grid lg:grid-cols-[1.05fr_1fr]">
       <aside
         className="auth-story relative hidden min-h-dvh flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14"
-        aria-label="About Orbit"
+        aria-label={t("auth.aboutOrbit")}
       >
-        <Link
-          href="/workspace"
-          className="auth-brand relative z-10 flex w-fit items-center gap-2.5 text-2xl font-semibold tracking-tight"
-          aria-label="Orbit demo workspace"
-        >
-          <Orbit size={32} strokeWidth={1.6} />
-          orbit<span className="auth-brand-dot">.</span>
-        </Link>
-        <div className="relative z-10 mx-auto w-full max-w-lg py-12">
+        <div className="relative z-0 mx-auto w-full max-w-lg pb-12 pt-28">
           <div className="auth-eyebrow mb-6 flex items-center gap-2 text-xs font-medium tracking-[.16em]">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" /> A LITTLE
-            CLARITY. A LOT OF POSSIBILITY.
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+            {t("auth.storyEyebrow")}
           </div>
           <h2 className="text-[clamp(2.5rem,4vw,4rem)] font-medium leading-[1.1] tracking-[-.05em]">
-            Your best work.
+            {t("auth.storyHeading")}
             <br />
-            <span className="auth-gradient-text">All in one orbit.</span>
+            <span className="auth-gradient-text">
+              {t("auth.storyHeadingAccent")}
+            </span>
           </h2>
           <p className="mt-6 max-w-sm text-[15px] leading-7 text-muted">
-            Bring your projects, people, and next big ideas together. Make a
-            little progress, every day.
+            {t("auth.storyDescription")}
           </p>
           <div
             className="auth-orbit-scene relative my-10 h-64"
             aria-hidden="true"
           >
+            <span className="auth-shooting-star auth-shooting-star-one" />
+            <span className="auth-shooting-star auth-shooting-star-two" />
             <div className="auth-orbit-ring ring-one" />
             <div className="auth-orbit-ring ring-two" />
             <div className="auth-orbit-ring ring-three" />
             <div className="auth-orbit-core">
               <Orbit size={58} strokeWidth={1} />
             </div>
+            <span className="auth-satellite auth-satellite-one">✦</span>
             <motion.div
               className="auth-float-card auth-float-project"
               initial={{ opacity: 0, y: 12 }}
@@ -66,8 +65,8 @@ export function AuthLayout({
                 <Layers3 size={17} />
               </span>
               <div>
-                <strong>Website redesign</strong>
-                <small>Ideas taking shape</small>
+                <strong>{t("auth.storyProject")}</strong>
+                <small>{t("auth.storyProjectHint")}</small>
               </div>
               <span className="auth-mini-dots">
                 <i />
@@ -85,8 +84,8 @@ export function AuthLayout({
                 <Check size={15} />
               </span>
               <div>
-                <strong>A little win.</strong>
-                <small>One step closer to the big picture.</small>
+                <strong>{t("auth.storyWin")}</strong>
+                <small>{t("auth.storyWinHint")}</small>
               </div>
             </motion.div>
             <span className="auth-star star-one">✦</span>
@@ -95,44 +94,48 @@ export function AuthLayout({
           <div className="flex items-start gap-3 border-t border-white/10 pt-6">
             <Sparkles size={18} className="mt-1 text-primary" />
             <p className="max-w-sm text-sm leading-6 text-muted">
-              Less switching between tools.
+              {t("auth.storyFooterLine1")}
               <br />
               <span className="text-foreground">
-                More space for what matters.
+                {t("auth.storyFooterLine2")}
               </span>
             </p>
           </div>
         </div>
         <div className="relative z-10 flex items-center justify-between text-xs text-muted">
           <span>© {new Date().getFullYear()} Orbit</span>
-          <span>Built for better days.</span>
+          <span>{t("auth.builtForBetterDays")}</span>
         </div>
       </aside>
-      <main className="relative flex min-h-dvh flex-col px-6 py-6 sm:px-10 lg:px-12">
-        <header className="flex items-center justify-between gap-3">
+      <main className="auth-main relative flex min-h-dvh flex-col px-6 pb-6 pt-24 sm:px-10 sm:pb-8 lg:px-12">
+        <nav
+          className="auth-navbar flex items-center justify-between gap-3"
+          aria-label="Main navigation"
+        >
           <Link
             href="/workspace"
-            aria-label="Orbit demo workspace"
-            className="auth-brand flex items-center gap-2 text-xl font-semibold lg:invisible"
+            aria-label={t("auth.demoWorkspace")}
+            className="auth-brand flex items-center gap-2.5 text-2xl font-semibold"
           >
-            <Orbit size={27} />
+            <Orbit size={32} strokeWidth={1.6} />
             orbit.
           </Link>
           <div className="ml-auto flex items-center gap-3">
+            <LanguageSwitcher compact />
             <ThemeToggle />
             <Link
               href="/workspace"
               className="auth-demo-link flex items-center gap-1.5 text-xs"
             >
-              Explore the workspace <ArrowUpRight size={14} />
+              {t("auth.exploreWorkspace")} <ArrowUpRight size={14} />
             </Link>
           </div>
-        </header>
-        <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10 sm:py-12">
+        </nav>
+        <div className="auth-form-panel mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10 sm:py-12">
           <div
             className="auth-tabs relative mb-8 grid grid-cols-2 rounded-xl p-1"
             role="tablist"
-            aria-label="Account access"
+            aria-label={t("auth.accountAccess")}
           >
             {(["login", "register"] as const).map((tab) => (
               <button
@@ -172,7 +175,7 @@ export function AuthLayout({
                   />
                 )}
                 <span className="relative z-10">
-                  {tab === "login" ? "Login" : "Sign Up"}
+                  {tab === "login" ? t("auth.loginTab") : t("auth.signUpTab")}
                 </span>
               </button>
             ))}
@@ -180,10 +183,12 @@ export function AuthLayout({
           {children}
         </div>
         <footer className="mx-auto flex w-full max-w-[400px] items-center justify-between gap-3 text-[11px] text-muted">
-          <span>Orbit workspace · UI preview</span>
+          <span>{t("auth.uiPreview")}</span>
           <div className="flex gap-4">
-            <button onClick={() => onInfo("privacy")}>Privacy</button>
-            <button onClick={() => onInfo("terms")}>Terms</button>
+            <button onClick={() => onInfo("privacy")}>
+              {t("auth.privacy")}
+            </button>
+            <button onClick={() => onInfo("terms")}>{t("auth.terms")}</button>
           </div>
         </footer>
       </main>

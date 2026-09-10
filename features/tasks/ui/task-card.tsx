@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { TaskTag as Tag } from "@/features/tasks/ui/task-tag";
 import { PriorityBadge } from "@/features/tasks/ui/priority-badge";
@@ -13,10 +14,13 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useRepository, useTask } from "@/features/workspace/provider";
+import { Tooltip } from "@/shared/ui";
 
 import { STATUSES, STATUS_META, type TaskStatus } from "../domain/task";
+import { taskStatusLabel } from "@/shared/i18n/task-copy";
 
 export function CoverArt({ type }: { type: "website" | "palette" }) {
+  const { t } = useTranslation();
   if (type === "palette")
     return (
       <span className="card-cover palette-cover" aria-hidden="true">
@@ -25,7 +29,7 @@ export function CoverArt({ type }: { type: "website" | "palette" }) {
         <span className="palette-swatch swatch-three" />
         <span className="palette-swatch swatch-four" />
         <span className="palette-swatch swatch-five" />
-        <span className="palette-caption">A little more us.</span>
+        <span className="palette-caption">{t("workspace.paletteCaption")}</span>
       </span>
     );
   return (
@@ -42,14 +46,14 @@ export function CoverArt({ type }: { type: "website" | "palette" }) {
         </span>
         <span className="mini-site-body">
           <span className="mini-site-copy">
-            <small>LESS, BUT BETTER</small>
+            <small>{t("workspace.lessButBetter")}</small>
             <b>
               Make room
               <br />
               for what matters.
             </b>
             <span className="mini-copy-lines" />
-            <em>Explore the collection ↗</em>
+            <em>{t("workspace.exploreCollection")} ↗</em>
           </span>
           <span className="mini-site-art">
             <i className="vase vase-one" />
@@ -72,6 +76,7 @@ export const TaskCard = memo(function TaskCard({
   onOpen: (id: string) => void;
   overlay?: boolean;
 }) {
+  const { t } = useTranslation();
   const task = useTask(id);
   const repository = useRepository();
   if (!task || task.deleted) return null;
@@ -88,14 +93,13 @@ export const TaskCard = memo(function TaskCard({
           ))}
         </span>
         <details className="task-menu">
-          <summary
-            aria-label={`Actions for ${task.title}`}
-            title="Task actions"
-          >
-            <MoreHorizontal size={17} />
+          <summary aria-label={`Actions for ${task.title}`}>
+            <Tooltip content="Task actions">
+              <MoreHorizontal size={17} />
+            </Tooltip>
           </summary>
           <div className="task-menu-panel">
-            <span>Move to</span>
+            <span>{t("workspace.moveTask")}</span>
             {STATUSES.map((status) => (
               <button
                 type="button"
@@ -107,7 +111,7 @@ export const TaskCard = memo(function TaskCard({
                     ?.removeAttribute("open");
                 }}
               >
-                {STATUS_META[status].label}
+                {taskStatusLabel(t, status)}
                 {status === task.status && <Check size={13} />}
               </button>
             ))}
@@ -140,7 +144,7 @@ export const TaskCard = memo(function TaskCard({
         <div className="card-checklist">
           <span>
             <ListChecks size={13} />
-            <span>Checklist</span>
+            <span>{t("workspace.taskChecklist")}</span>
             <b>
               {complete}/{task.subtasks.length}
             </b>

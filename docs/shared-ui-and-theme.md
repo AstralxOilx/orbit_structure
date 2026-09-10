@@ -35,6 +35,12 @@ Global palette tokens live in `shared/theme/tokens.css`. Auth palette tokens liv
 | --- | --- |
 | `button.tsx` | Button variants, loading state and forwarded native props |
 | `input.tsx` | Label, validation, optional icon and keyboard-accessible password visibility |
+| `date-input.tsx` | Controlled ISO date field, themed calendar popover, min/max, keyboard navigation and validation text |
+
+Date inputs store calendar dates as `YYYY-MM-DD` strings. `DateInput` keeps
+native typing and form semantics while adding the shared calendar popover; use
+`density="compact"` for inline task properties and provide `min`/`max` when
+dates define an interval.
 | `checkbox.tsx` | Native checkbox, label and associated validation error |
 | `icon-button.tsx` | Named icon action with tooltip and accessible label |
 | `dialog.tsx` | Native modal, Escape/backdrop dismissal and focus restoration |

@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@/shared/ui/select";
+
 import { useId } from "react";
 import { useTheme, type ThemePreference } from "./use-theme";
 
@@ -15,7 +17,7 @@ export function ThemeSelect({
   return (
     <label className={`theme-select ${className}`} htmlFor={id}>
       {label}
-      <select
+      <Select
         id={id}
         disabled={!ready}
         value={theme ?? "dark"}
@@ -24,7 +26,7 @@ export function ThemeSelect({
         <option value="light">Light</option>
         <option value="dark">Dark</option>
         <option value="system">System</option>
-      </select>
+      </Select>
     </label>
   );
 }

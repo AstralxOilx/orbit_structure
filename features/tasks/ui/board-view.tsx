@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, memo } from "react";
+import { useTranslation } from "react-i18next";
 import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import {
   DragDropProvider,
@@ -22,6 +23,7 @@ import {
 } from "@tanstack/react-virtual";
 import { GripVertical, MoreHorizontal, Plus } from "lucide-react";
 import { TaskCard } from "./task-card";
+import { EmptyState, Tooltip } from "@/shared/ui";
 import {
   STATUSES,
   STATUS_META,
@@ -30,6 +32,10 @@ import {
 } from "../domain/task";
 import { IconButton } from "@/shared/ui";
 import { useRepository } from "@/features/workspace/provider";
+import {
+  taskStatusDescription,
+  taskStatusLabel,
+} from "@/shared/i18n/task-copy";
 
 // Virtualizer owns DOM placement. Disable imperative optimistic DOM reparenting.
 const sortablePlugins = [SortableKeyboardPlugin];
@@ -47,13 +53,12 @@ const SortableCard = memo(function SortableCard({
   task,
   index,
   onOpen,
-  manual,
 }: {
   task: Task;
   index: number;
   onOpen: (id: string) => void;
-  manual: boolean;
 }) {
+  const { t } = useTranslation();
   const {
     ref: setNode,
     handleRef: setHandle,
@@ -66,7 +71,6 @@ const SortableCard = memo(function SortableCard({
     type: "task",
     accept: "task",
     data: { status: task.status },
-    disabled: !manual,
     transition: { duration: 200 },
   });
   return (
@@ -74,7 +78,7 @@ const SortableCard = memo(function SortableCard({
       ref={setNode}
       className={`sortable-card ${isDragSource ? "is-drag-source" : ""}`}
     >
-      {manual && (
+      <Tooltip content={t("workspace.dragTask")}>
         <button
           type="button"
           ref={setHandle}
@@ -83,7 +87,7 @@ const SortableCard = memo(function SortableCard({
         >
           <GripVertical size={15} />
         </button>
-      )}
+      </Tooltip>
       <TaskCard id={task.id} onOpen={onOpen} />
     </div>
   );
@@ -95,16 +99,15 @@ function BoardColumn({
   activeId,
   onOpen,
   onAdd,
-  manual,
 }: {
   status: TaskStatus;
   tasks: Task[];
   activeId: string | null;
   onOpen: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
-  manual: boolean;
 }) {
   "use no memo"; // TanStack Virtual owns mutable measurements; do not compiler-memoize them.
+  const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const { ref: dropRef, isDropTarget } = useDroppable({
     id: `column:${status}`,
@@ -125,6 +128,9 @@ function BoardColumn({
   // Explicitly opted out of React Compiler above; measurement methods remain live.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
+    // Ref measurements can notify during React's commit phase. Let React batch
+    // these updates instead of forcing a nested flushSync from the adapter.
+    useFlushSync: false,
     count: tasks.length,
     getScrollElement: () => scroller.current,
     estimateSize: (index) =>
@@ -137,23 +143,29 @@ function BoardColumn({
   return (
     <section
       className={`board-column ${isDropTarget ? "column-drop-target" : ""}`}
-      aria-label={`${STATUS_META[status].label}, ${tasks.length} tasks`}
+      aria-label={`${taskStatusLabel(t, status)}, ${tasks.length} ${t("workspace.tasks")}`}
     >
       <div className="column-heading">
         <span className="column-title">
           <StatusIcon status={status} />
-          <h2>{STATUS_META[status].label}</h2>
+          <h2>{taskStatusLabel(t, status)}</h2>
           <span className="column-count">{tasks.length}</span>
         </span>
         <span className="column-actions">
           <IconButton
-            label={`Add task to ${STATUS_META[status].label}`}
+            label={t("workspace.addTaskToStatus", {
+              status: taskStatusLabel(t, status),
+            })}
             onClick={() => onAdd(status)}
           >
             <Plus size={16} />
           </IconButton>
           <details className="column-menu">
-            <summary aria-label={`${STATUS_META[status].label} options`}>
+            <summary
+              aria-label={t("workspace.statusOptions", {
+                status: taskStatusLabel(t, status),
+              })}
+            >
               <MoreHorizontal size={17} />
             </summary>
             <div className="task-menu-panel">
@@ -165,9 +177,9 @@ function BoardColumn({
                     ?.removeAttribute("open");
                 }}
               >
-                Add a task
+                {t("workspace.addTaskToColumn")}
               </button>
-              <span>{STATUS_META[status].description}</span>
+              <span>{taskStatusDescription(t, status)}</span>
             </div>
           </details>
         </span>
@@ -195,13 +207,12 @@ function BoardColumn({
                 task={tasks[row.index]}
                 index={row.index}
                 onOpen={onOpen}
-                manual={manual}
               />
             </div>
           ))}
         </div>
         <button className="add-column-task" onClick={() => onAdd(status)}>
-          <Plus size={15} /> Add task
+          <Plus size={15} /> {t("workspace.addTaskAction")}
         </button>
       </div>
     </section>
@@ -213,12 +224,21 @@ export default function BoardView({
   onOpen,
   onAdd,
   manual = true,
+  onManualReorder,
+  crossProject = false,
+  hasTasks = tasks.length > 0,
+  onClearFilters,
 }: {
   tasks: Task[];
   onOpen: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
   manual?: boolean;
+  onManualReorder?: () => void;
+  crossProject?: boolean;
+  hasTasks?: boolean;
+  onClearFilters?: () => void;
 }) {
+  const { t } = useTranslation();
   const repository = useRepository();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -243,6 +263,9 @@ export default function BoardView({
     const targetStatus = target.data.status as TaskStatus;
     const nextStatus = targetStatus;
     if (!STATUSES.includes(nextStatus)) return;
+    const sameColumn = source.data.status === nextStatus;
+    if (source.id === target.id) return;
+    if (!manual && sameColumn) onManualReorder?.();
     const movingDown =
       isSortable(source) &&
       isSortable(target) &&
@@ -251,13 +274,46 @@ export default function BoardView({
     repository.move(
       String(source.id),
       nextStatus,
-      isSortable(target) ? String(target.id) : undefined,
+      isSortable(target) && (manual || sameColumn)
+        ? String(target.id)
+        : undefined,
       movingDown ? "after" : "before",
+      crossProject ? "workspace" : "project",
     );
     setAnnouncement(
-      `${repository.getTask(String(source.id))?.title} moved to ${STATUS_META[nextStatus].label}`,
+      t("workspace.taskMovedToStatus", {
+        title: repository.getTask(String(source.id))?.title,
+        status: taskStatusLabel(t, nextStatus),
+      }),
     );
   };
+  if (!tasks.length)
+    return (
+      <div className="board-canvas board-empty">
+        <EmptyState
+          title={hasTasks ? "No matching tasks" : "No tasks yet"}
+          description={
+            hasTasks
+              ? t("workspace.changeSearchFilters")
+              : t("workspace.firstTaskDescription")
+          }
+          action={
+            hasTasks ? (
+              <button className="button" onClick={onClearFilters}>
+                {t("workspace.clearFilters")}
+              </button>
+            ) : (
+              <button
+                className="button button-primary"
+                onClick={() => onAdd("backlog")}
+              >
+                <Plus size={16} /> {t("workspace.addFirstTask")}
+              </button>
+            )
+          }
+        />
+      </div>
+    );
   return (
     <DragDropProvider
       sensors={sensors}
@@ -275,7 +331,6 @@ export default function BoardView({
             activeId={activeId}
             onOpen={onOpen}
             onAdd={onAdd}
-            manual={manual}
           />
         ))}
       </div>

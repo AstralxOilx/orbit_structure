@@ -12,9 +12,8 @@ import {
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
-  Bell,
   CalendarDays,
   ChartNoAxesCombined,
   Check,
@@ -24,21 +23,30 @@ import {
   Clock3,
   Columns3,
   FolderKanban,
-  Globe2,
   Inbox,
-  LayoutGrid,
+  History,
   List,
+  MessageCircle,
   Menu,
   PanelLeftClose,
   Plus,
   Search,
+  Settings,
   Share2,
-  Smartphone,
   Star,
   UsersRound,
   X,
 } from "lucide-react";
-import { EmptyState, IconButton, ViewSkeleton } from "@/shared/ui";
+import {
+  EmptyState,
+  IconButton,
+  Toast,
+  Tooltip,
+  ViewSkeleton,
+  CatalogSkeleton,
+  LanguageSwitcher,
+  NewUserTooltip,
+} from "@/shared/ui";
 import {
   DEFAULT_FILTERS,
   type Priority,
@@ -48,14 +56,31 @@ import {
   type WorkspacePage,
 } from "@/features/tasks/domain/task";
 import { useFilteredTasks } from "@/features/tasks/model/use-filtered-tasks";
-import { MEMBERS, PROJECTS } from "./data";
+import { useMembers } from "@/features/workspace/catalog";
+import { CatalogProvider, useCatalog } from "./catalog";
+import { CatalogDialog } from "./catalog-dialog";
 import { useSaveState, useTasks, WorkspaceProvider } from "./provider";
 import { useWorkspaceUI } from "./ui-store";
 import { PresenceLayer } from "@/features/collaboration/presence-layer";
 import { Sidebar, type WorkspaceModal } from "./sidebar";
 import { WorkspaceModals } from "./workspace-modals";
-import { TeamPage, InboxPage } from "./secondary-pages";
+import {
+  ActivityPage,
+  DiscussionPage,
+  TeamPage,
+  InboxPage,
+} from "./secondary-pages";
 import { TaskToolbar } from "@/features/tasks/ui/task-toolbar";
+import { ProjectIcon } from "./ui/project-icon";
+import { NotificationCenter } from "./notification-center";
+import { OnboardingDialog } from "./onboarding";
+import { rememberRecent } from "./recent";
+import {
+  DEFAULT_PREFERENCES,
+  readPreferences,
+  writePreferences,
+  type WorkspacePreferences,
+} from "./preferences";
 
 const BoardView = dynamic(() => import("@/features/tasks/ui/board-view"), {
   loading: ViewSkeleton,
@@ -79,6 +104,9 @@ const NewTaskDialog = dynamic(() =>
 );
 
 function Workspace() {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "th" ? "th-TH" : "en-US";
+  const MEMBERS = useMembers();
   const params = useSearchParams();
   const tasks = useTasks();
   const save = useSaveState();
@@ -86,38 +114,80 @@ function Workspace() {
   const mobileNav = useWorkspaceUI((state) => state.mobileNav);
   const [modal, setModal] = useState<WorkspaceModal>(null);
   const [newStatus, setNewStatus] = useState<TaskStatus | null>(null);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ message: string; action?: () => void }>({
+    message: "",
+  });
   const [starred, setStarred] = useState(false);
   const [density, setDensity] = useState("comfortable");
+  const [preferences, setPreferences] =
+    useState<WorkspacePreferences>(DEFAULT_PREFERENCES);
   const [selectedMember, setSelectedMember] = useState("alex");
   const [inboxRead, setInboxRead] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const openedDrawer = useRef(false);
-  const { data: projects = PROJECTS } = useQuery({
-    queryKey: ["local-workspace", "projects"],
-    queryFn: async () => PROJECTS,
-    initialData: PROJECTS,
-    staleTime: Infinity,
-  });
+  const { projects, workspace } = useCatalog();
   const projectId = projects.some(
     (project) => project.id === params.get("project"),
   )
     ? params.get("project")!
-    : "website";
-  const project = projects.find((item) => item.id === projectId)!;
-  const page: WorkspacePage = [
-    "overview",
-    "my-tasks",
-    "teams",
-    "inbox",
-  ].includes(params.get("section") ?? "")
-    ? (params.get("section") as WorkspacePage)
-    : "project";
+    : (projects[0]?.id ?? "");
+  const project = projects.find((item) => item.id === projectId);
+  useEffect(() => {
+    const next = readPreferences(workspace.id);
+    queueMicrotask(() => {
+      setPreferences(next);
+      setDensity(next.density);
+    });
+    localStorage.setItem("orbit.language.v1", next.language);
+    document.documentElement.lang = next.language;
+    document.documentElement.dataset.dateFormat = next.dateFormat;
+  }, [workspace.id]);
+  useEffect(() => {
+    queueMicrotask(() =>
+      setStarred(
+        localStorage.getItem(
+          `orbit.workspace.favorite.v1.${workspace.id}.${projectId}`,
+        ) === "1",
+      ),
+    );
+  }, [workspace.id, projectId]);
+  useEffect(() => {
+    const key = `orbit.onboarding.v1.${workspace.id}`;
+    if (localStorage.getItem(key) === "1") return;
+    queueMicrotask(() =>
+      setOnboardingStep(projects.length ? (tasks.length ? null : 2) : 1),
+    );
+  }, [workspace.id, projects.length, tasks.length]);
+  const updatePreferences = useCallback(
+    (next: WorkspacePreferences) => {
+      setPreferences(next);
+      setDensity(next.density);
+      document.documentElement.lang = next.language;
+      document.documentElement.dataset.dateFormat = next.dateFormat;
+      writePreferences(workspace.id, next);
+    },
+    [workspace.id],
+  );
+  const page: WorkspacePage = !projects.length
+    ? "overview"
+    : [
+          "overview",
+          "my-tasks",
+          "teams",
+          "inbox",
+          "discussion",
+          "activity",
+        ].includes(params.get("section") ?? "")
+      ? (params.get("section") as WorkspacePage)
+      : "project";
   const view: ViewMode = ["board", "list", "timeline"].includes(
     params.get("view") ?? "",
   )
     ? (params.get("view") as ViewMode)
-    : "board";
-  const taskId = params.get("task");
+    : preferences.defaultView;
+  const taskId = tasks.some((task) => task.id === params.get("task"))
+    ? params.get("task")
+    : null;
   const query = params.get("q") ?? "";
   const deferredQuery = useDeferredValue(query);
   const filters: TaskFilters = useMemo(
@@ -157,6 +227,12 @@ function Workspace() {
   const openTask = useCallback(
     (id: string) => {
       openedDrawer.current = true;
+      if (project)
+        rememberRecent(workspace.id, {
+          type: "task",
+          id,
+          name: tasks.find((item) => item.id === id)?.title ?? id,
+        });
       setLocation({ task: id });
     },
     [setLocation],
@@ -167,8 +243,17 @@ function Workspace() {
       window.history.back();
     } else setLocation({ task: null }, true);
   }, [setLocation]);
-  const onAdd = useCallback((status: TaskStatus) => setNewStatus(status), []);
-  const notify = useCallback((message: string) => setToast(message), []);
+  const onAdd = useCallback(
+    (status: TaskStatus) => {
+      if (!projectId) setModal("new-project");
+      else setNewStatus(status);
+    },
+    [projectId],
+  );
+  const notify = useCallback(
+    (message: string, action?: () => void) => setToast({ message, action }),
+    [],
+  );
   const navigate = useCallback(
     (section: WorkspacePage, id?: string) => {
       setLocation({
@@ -182,7 +267,20 @@ function Workspace() {
     [projectId, setLocation],
   );
   const onProject = useCallback(
-    (id: string) => navigate("project", id),
+    (id: string) => {
+      const item = projects.find((value) => value.id === id);
+      if (item)
+        rememberRecent(workspace.id, { type: "project", id, name: item.name });
+      navigate("project", id);
+    },
+    [navigate, projects, workspace.id],
+  );
+  const onCommand = useCallback(
+    (command: string) => {
+      if (command === "new-task") setNewStatus("backlog");
+      else if (command === "new-project") setModal("new-project");
+      else navigate(command as WorkspacePage);
+    },
     [navigate],
   );
   const onMember = (id: string) => {
@@ -213,6 +311,19 @@ function Workspace() {
     filters.assigneeId !== "all" ||
     filters.tag !== "all" ||
     filters.due !== "all";
+  const clearTaskFilters = useCallback(
+    () =>
+      setLocation({
+        q: null,
+        priority: null,
+        assignee: null,
+        tag: null,
+        due: null,
+        sort: null,
+        hideDone: null,
+      }),
+    [setLocation],
+  );
   const isTasksPage = page === "project" || page === "my-tasks";
 
   useEffect(() => {
@@ -226,16 +337,24 @@ function Workspace() {
   }, []);
 
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(""), 3800);
+    if (!toast.message) return;
+    const timer = setTimeout(() => setToast({ message: "" }), 8000);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    if (save.status !== "error") return;
+    queueMicrotask(() => setToast({ message: save.message }));
+  }, [save.status, save.message]);
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (!taskId && newStatus === null)
           setModal((old) => (old === "search" ? null : "search"));
+      }
+      if (event.key === "?" && !modal && !taskId && newStatus === null) {
+        event.preventDefault();
+        setModal("help");
       }
       if (
         (event.target as HTMLElement)?.matches(
@@ -252,34 +371,38 @@ function Workspace() {
         newStatus === null
       ) {
         event.preventDefault();
-        setNewStatus("backlog");
+        onAdd("backlog");
       }
     };
     document.addEventListener("keydown", listener);
     return () => document.removeEventListener("keydown", listener);
-  }, [modal, taskId, newStatus]);
+  }, [modal, taskId, newStatus, onAdd]);
   const pageTitle =
     page === "project"
-      ? project.name
+      ? project?.name
       : page === "overview"
-        ? "Workspace overview"
+        ? t("page.overview")
         : page === "teams"
-          ? "The people behind the progress"
+          ? t("page.team")
           : page === "inbox"
-            ? "Your inbox"
-            : "My tasks";
+            ? t("page.inbox")
+            : page === "discussion"
+              ? t("page.discussion")
+              : page === "activity"
+                ? t("page.activity")
+                : t("page.tasks");
   return (
     <div
-      className={`workspace ${collapsed ? "sidebar-collapsed" : ""} ${mobileNav ? "mobile-nav-open" : ""} density-${density}`}
+      className={`workspace ${collapsed ? "sidebar-collapsed" : ""} ${mobileNav ? "mobile-nav-open" : ""} density-${density} layout-${preferences.layout}`}
     >
       <a href="#workspace-main" className="skip-link">
-        Skip to workspace
+        {t("workspace.skipWorkspace")}
       </a>
       <button
         className="mobile-nav-scrim"
         aria-hidden={!mobileNav}
         tabIndex={-1}
-        aria-label="Close navigation"
+        aria-label={t("workspace.closeNavigation")}
         onClick={() => useWorkspaceUI.getState().setMobileNav(false)}
       />
       <Sidebar
@@ -304,7 +427,7 @@ function Workspace() {
           <div className="breadcrumbs">
             <IconButton
               className="mobile-menu-button"
-              label="Open navigation"
+              label={t("workspace.openNavigation")}
               aria-expanded={mobileNav}
               aria-controls="workspace-sidebar"
               onClick={() => useWorkspaceUI.getState().setMobileNav(true)}
@@ -314,18 +437,34 @@ function Workspace() {
             {collapsed && (
               <IconButton
                 className="expand-control"
-                label="Expand sidebar"
+                label={t("workspace.expandSidebar")}
                 onClick={() => useWorkspaceUI.getState().setCollapsed(false)}
               >
                 <PanelLeftClose size={17} />
               </IconButton>
             )}
-            <span className="breadcrumb-home">
+            <button
+              className="breadcrumb-home"
+              onClick={() => navigate("overview")}
+            >
               <FolderKanban size={15} />
-              <span>{page === "project" ? "Projects" : "Workspace"}</span>
-            </span>
+              <span>
+                {page === "project"
+                  ? t("workspace.breadcrumbProjects")
+                  : t("workspace.breadcrumbWorkspace")}
+              </span>
+            </button>
             <ChevronRight size={13} />
-            <strong>{page === "project" ? project.name : pageTitle}</strong>
+            {page === "project" ? (
+              <button
+                className="breadcrumb-current"
+                onClick={() => navigate("project", projectId)}
+              >
+                {project?.name}
+              </button>
+            ) : (
+              <strong>{pageTitle}</strong>
+            )}
           </div>
           <div className="topbar-actions">
             <button
@@ -333,22 +472,30 @@ function Workspace() {
               onClick={() => setModal("search")}
             >
               <Search size={15} />
-              <span>Search anything…</span>
+              <span>{t("workspace.search")}</span>
               <kbd>⌘ K</kbd>
             </button>
             <span className="topbar-divider" />
-            <IconButton
-              label="Open notifications"
-              className="notification-button"
-              onClick={() => navigate("inbox")}
-            >
-              <Bell size={18} />
-              {!inboxRead && <i />}
-            </IconButton>
+            <LanguageSwitcher
+              compact
+              value={preferences.language}
+              onChange={(language) =>
+                updatePreferences({ ...preferences, language })
+              }
+            />
+            <NotificationCenter
+              workspaceId={workspace.id}
+              tasks={tasks}
+              onOpenInbox={() => navigate("inbox")}
+              onOpenTask={openTask}
+              onOpenProject={onProject}
+              onOpenDiscussion={() => navigate("discussion")}
+              notifications={preferences.notifications}
+            />
             <button
               className="avatar-button topbar-avatar"
               onClick={() => onMember("alex")}
-              aria-label="Your profile"
+              aria-label={t("workspace.yourProfile")}
             >
               <Avatar id="alex" size="sm" />
             </button>
@@ -356,27 +503,26 @@ function Workspace() {
         </header>
         <main
           id="workspace-main"
-          className={`workspace-main ${!isTasksPage ? "page-scrollable" : ""}`}
+          aria-busy={save.status === "saving"}
+          className={`workspace-main ${!isTasksPage ? "page-scrollable" : ""} ${page === "discussion" ? "discussion-main" : ""}`}
         >
           <div className="page-heading">
             <div className="page-heading-main">
               <span
-                className={`project-symbol project-icon-${page === "project" ? project.color : "purple"}`}
+                className={`project-symbol project-icon-${page === "project" ? project?.color : "purple"}`}
               >
-                {page === "project" ? (
-                  projectId === "website" ? (
-                    <Globe2 size={27} strokeWidth={1.7} />
-                  ) : projectId === "mobile" ? (
-                    <Smartphone size={27} />
-                  ) : (
-                    <LayoutGrid size={27} />
-                  )
+                {page === "project" && project ? (
+                  <ProjectIcon project={project} size={27} />
                 ) : page === "overview" ? (
                   <ChartNoAxesCombined size={27} />
                 ) : page === "teams" ? (
                   <UsersRound size={27} />
                 ) : page === "inbox" ? (
                   <Inbox size={27} />
+                ) : page === "discussion" ? (
+                  <MessageCircle size={27} />
+                ) : page === "activity" ? (
+                  <History size={27} />
                 ) : (
                   <CheckCheck size={27} />
                 )}
@@ -390,11 +536,18 @@ function Workspace() {
                         className={`star-button ${starred ? "is-starred" : ""}`}
                         aria-label={
                           starred
-                            ? "Remove project from favorites"
-                            : "Favorite project"
+                            ? t("workspace.removeFavorite")
+                            : t("workspace.favoriteProject")
                         }
                         aria-pressed={starred}
-                        onClick={() => setStarred(!starred)}
+                        onClick={() => {
+                          const next = !starred;
+                          setStarred(next);
+                          localStorage.setItem(
+                            `orbit.workspace.favorite.v1.${workspace.id}.${projectId}`,
+                            next ? "1" : "0",
+                          );
+                        }}
                       >
                         <Star
                           size={18}
@@ -403,36 +556,45 @@ function Workspace() {
                       </button>
                       <span className="on-track-badge">
                         <span />
-                        On track
+                        {t("workspace.onTrack")}
                       </span>
                     </>
                   )}
                 </div>
                 <p>
                   {page === "project"
-                    ? project.description
+                    ? project?.description
                     : page === "overview"
-                      ? "A little clarity for everything you’re building together."
+                      ? t("workspace.overviewDescription")
                       : page === "teams"
-                        ? "Great things happen when the right people come together."
+                        ? t("workspace.teamDescription")
                         : page === "inbox"
-                          ? "Stay in the loop, without losing your focus."
-                          : "Your priorities, your progress, your space to focus."}
+                          ? t("workspace.inboxDescription")
+                          : page === "activity"
+                            ? t("workspace.activityDescription")
+                            : t("workspace.tasksDescription")}
                 </p>
               </div>
             </div>
             <div className="page-heading-actions">
               {isTasksPage ? (
                 <>
-                  <div className="avatar-stack" aria-label="Project team">
+                  <div
+                    className="avatar-stack"
+                    aria-label={t("workspace.projectTeam")}
+                  >
                     {MEMBERS.slice(0, 4).map((member) => (
                       <Avatar id={member.id} key={member.id} size="sm" />
                     ))}
                     <button
                       onClick={() => setModal("share")}
-                      aria-label="View all project members"
+                      aria-label={t("workspace.viewProjectMembers")}
                     >
-                      +1
+                      {MEMBERS.length > 4 ? (
+                        `+${MEMBERS.length - 4}`
+                      ) : (
+                        <UsersRound size={14} />
+                      )}
                     </button>
                   </div>
                   <button
@@ -440,28 +602,42 @@ function Workspace() {
                     onClick={() => setModal("share")}
                   >
                     <Share2 size={14} />
-                    <span>Share</span>
+                    <span>{t("workspace.share")}</span>
                   </button>
+                  {page === "project" && project && (
+                    <button
+                      className="button"
+                      aria-label={t("workspace.projectSettings")}
+                      onClick={() => setModal("project-settings")}
+                    >
+                      <Settings size={15} />
+                      <span>{t("workspace.settings")}</span>
+                    </button>
+                  )}
                   <button
                     className="button button-primary"
                     onClick={() => setNewStatus("backlog")}
                   >
                     <Plus size={17} />
-                    Add task
+                    {t("workspace.addTask")}
                   </button>
                 </>
               ) : page === "inbox" ? (
                 <button className="button" onClick={() => setInboxRead(true)}>
                   <CheckCheck size={16} />
-                  Mark all as read
+                  {t("workspace.markRead")}
                 </button>
-              ) : (
+              ) : page === "discussion" || page === "activity" ? null : (
                 <button
                   className="button button-primary"
-                  onClick={() => setModal("share")}
+                  onClick={() =>
+                    setModal(page === "overview" ? "new-project" : "share")
+                  }
                 >
                   <Plus size={16} />
-                  Share workspace
+                  {page === "overview"
+                    ? t("workspace.createProject")
+                    : t("workspace.share")}
                 </button>
               )}
             </div>
@@ -471,12 +647,23 @@ function Workspace() {
               <div className="project-context">
                 <span>
                   <CalendarDays size={14} />
-                  Due <strong>{project.due}</strong>
+                  {t("workspace.due")}{" "}
+                  <strong>
+                    {project?.due && project.due !== "Not scheduled"
+                      ? new Intl.DateTimeFormat(locale, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }).format(new Date(project.due))
+                      : t("workspace.notScheduled")}
+                  </strong>
                 </span>
                 <i />
                 <span>
                   <UsersRound size={14} />
-                  {page === "my-tasks" ? "Assigned to you" : project.team}
+                  {page === "my-tasks"
+                    ? t("workspace.assignedToYou")
+                    : project?.team}
                 </span>
                 <i />
                 <span className="context-progress">
@@ -488,7 +675,7 @@ function Workspace() {
                   >
                     <i />
                   </span>
-                  <strong>{percent}%</strong> complete{" "}
+                  <strong>{percent}%</strong> {t("workspace.complete")}{" "}
                   <span className="muted">
                     ({done}/{projectTasks.length})
                   </span>
@@ -498,15 +685,19 @@ function Workspace() {
                 <div
                   className="view-tabs"
                   role="tablist"
-                  aria-label="Task views"
+                  aria-label={t("workspace.taskViews")}
                 >
                   {(
                     [
-                      { id: "board", label: "Board", icon: Columns3 },
-                      { id: "list", label: "List", icon: List },
+                      {
+                        id: "board",
+                        label: t("workspace.board"),
+                        icon: Columns3,
+                      },
+                      { id: "list", label: t("workspace.list"), icon: List },
                       {
                         id: "timeline",
-                        label: "Timeline",
+                        label: t("workspace.timeline"),
                         icon: ChartNoAxesCombined,
                       },
                     ] as const
@@ -543,27 +734,28 @@ function Workspace() {
                     </button>
                   ))}
                 </div>
-                <div
-                  className={`save-state save-${save.status}`}
-                  title={save.message}
-                  role="status"
-                  aria-live="polite"
-                >
-                  {save.status === "saving" ? (
-                    <Clock3 size={13} />
-                  ) : save.status === "error" ? (
-                    <CircleHelp size={13} />
-                  ) : (
-                    <CheckCheck size={14} />
-                  )}
-                  <span>
-                    {save.status === "error"
-                      ? "Changes not saved"
-                      : save.status === "saving"
-                        ? "Saving…"
-                        : "All changes saved"}
-                  </span>
-                </div>
+                <Tooltip content={save.message} side="top">
+                  <div
+                    className={`save-state save-${save.status}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {save.status === "saving" ? (
+                      <Clock3 size={13} />
+                    ) : save.status === "error" ? (
+                      <CircleHelp size={13} />
+                    ) : (
+                      <CheckCheck size={14} />
+                    )}
+                    <span>
+                      {save.status === "error"
+                        ? t("workspace.saveFailed")
+                        : save.status === "saving"
+                          ? t("workspace.saving")
+                          : t("workspace.allChangesSaved")}
+                    </span>
+                  </div>
+                </Tooltip>
               </div>
               <TaskToolbar
                 filters={filters}
@@ -606,32 +798,63 @@ function Workspace() {
                     onOpen={openTask}
                     onAdd={onAdd}
                     manual={filters.sort === "manual"}
+                    onManualReorder={() => setLocation({ sort: null })}
+                    crossProject={page === "my-tasks"}
+                    hasTasks={projectTasks.length > 0}
+                    onClearFilters={clearTaskFilters}
                   />
                 ) : view === "list" ? (
                   <ListView
                     tasks={filteredTasks}
                     onOpen={openTask}
                     onAdd={onAdd}
+                    onNotify={notify}
+                    hasTasks={projectTasks.length > 0}
+                    onClearFilters={clearTaskFilters}
                   />
                 ) : (
-                  <TimelineView tasks={filteredTasks} onOpen={openTask} />
+                  <TimelineView
+                    tasks={filteredTasks}
+                    onOpen={openTask}
+                    hasTasks={projectTasks.length > 0}
+                    onClearFilters={clearTaskFilters}
+                  />
                 )}
               </div>
               <div className="canvas-footer">
                 <span>
-                  <span className="footer-dot" />A little progress, every day.
+                  <span className="footer-dot" />
+                  {t("workspace.progressEveryDay")}
                 </span>
                 <span>
                   {filters.sort !== "manual" ? (
-                    "Choose Manual sort to drag cards"
+                    t("workspace.dragManualOrder")
                   ) : (
-                    <>
-                      Tip: press <kbd>N</kbd> to create a task
-                    </>
+                    <>{t("workspace.tipCreateTask")}</>
                   )}
                 </span>
               </div>
             </>
+          ) : page === "overview" && !projects.length ? (
+            <EmptyState
+              title={t("workspace.workspaceReadyTitle")}
+              description={t("workspace.firstProjectDescription")}
+              action={
+                <NewUserTooltip
+                  id="first-project"
+                  content={t("workspace.startProject")}
+                  side="top"
+                >
+                  <button
+                    className="button button-primary"
+                    onClick={() => setModal("new-project")}
+                  >
+                    <Plus size={16} />
+                    {t("workspace.createFirstProject")}
+                  </button>
+                </NewUserTooltip>
+              }
+            />
           ) : page === "overview" ? (
             <AnalyticsView
               tasks={tasks}
@@ -640,8 +863,17 @@ function Workspace() {
             />
           ) : page === "teams" ? (
             <TeamPage tasks={tasks} onMember={onMember} />
+          ) : page === "discussion" ? (
+            <DiscussionPage onNotify={notify} />
+          ) : page === "activity" ? (
+            <ActivityPage />
           ) : (
-            <InboxPage tasks={tasks} read={inboxRead} onOpen={openTask} />
+            <InboxPage
+              tasks={tasks}
+              read={inboxRead}
+              onRead={() => setInboxRead(true)}
+              onOpen={openTask}
+            />
           )}
         </main>
       </div>
@@ -653,19 +885,58 @@ function Workspace() {
           onNotify={notify}
         />
       )}
-      {newStatus !== null && (
+      {newStatus !== null && projectId && (
         <NewTaskDialog
           projectId={projectId}
           status={newStatus}
           onClose={() => setNewStatus(null)}
           onCreated={(id) => {
             setNewStatus(null);
-            notify("A new task. A little more progress.");
+            notify(t("workspace.newTaskToast"));
             openTask(id);
           }}
         />
       )}
-      {modal && (
+      {(modal === "workspaces" || modal === "new-project") && (
+        <CatalogDialog
+          tasks={tasks}
+          mode={modal}
+          onClose={() => setModal(null)}
+          onWorkspace={() => {
+            setModal(null);
+            setLocation({
+              section: "overview",
+              project: null,
+              task: null,
+              q: null,
+              priority: null,
+              assignee: null,
+              tag: null,
+              due: null,
+              sort: null,
+              hideDone: null,
+            });
+          }}
+          onProject={(id) => {
+            setModal(null);
+            setLocation({
+              section: null,
+              project: id,
+              task: null,
+              q: null,
+              priority: null,
+              assignee: null,
+              tag: null,
+              due: null,
+              sort: null,
+              hideDone: null,
+            });
+            notify(t("workspace.projectCreatedToast"));
+          }}
+          onNotify={notify}
+        />
+      )}
+      {modal && modal !== "workspaces" && modal !== "new-project" && (
         <WorkspaceModals
           key={modal}
           modal={modal}
@@ -674,36 +945,114 @@ function Workspace() {
           tasks={tasks}
           memberId={selectedMember}
           onOpen={openTask}
+          onProject={onProject}
+          onMember={onMember}
+          onCommand={onCommand}
           notify={notify}
           density={density}
-          setDensity={setDensity}
+          setDensity={(value) =>
+            updatePreferences({
+              ...preferences,
+              density: value as "comfortable" | "compact",
+            })
+          }
+          preferences={preferences}
+          onPreferencesChange={updatePreferences}
         />
       )}
-      {toast && (
-        <div className="toast" role="status">
-          <span className="toast-check">
-            <Check size={15} />
-          </span>
-          {toast}
-          <button
-            aria-label="Dismiss notification"
-            onClick={() => setToast("")}
-          >
-            <X size={15} />
-          </button>
-        </div>
+      {toast.message && (
+        <Toast
+          message={toast.message}
+          action={toast.action ? t("workspace.undoAction") : undefined}
+          onAction={() => {
+            toast.action?.();
+            setToast({ message: t("workspace.itemRestored") });
+          }}
+          onDismiss={() => setToast({ message: "" })}
+        />
       )}
-      <PresenceLayer scope={`${projectId}.${view}`} />
+      {onboardingStep !== null && (
+        <OnboardingDialog
+          step={onboardingStep}
+          onClose={() => {
+            localStorage.setItem(`orbit.onboarding.v1.${workspace.id}`, "1");
+            setOnboardingStep(null);
+          }}
+          onAction={(step) => {
+            if (step === 1) {
+              setOnboardingStep(2);
+              setModal("new-project");
+            } else if (step === 2 && projectId) {
+              localStorage.setItem(`orbit.onboarding.v1.${workspace.id}`, "1");
+              setOnboardingStep(null);
+              setNewStatus("backlog");
+            }
+          }}
+        />
+      )}
+      <PresenceLayer scope={`${workspace.id}.${projectId}.${view}`} />
     </div>
+  );
+}
+
+function ScopedWorkspace() {
+  const { workspace, ready, workspaces } = useCatalog();
+  if (!ready) return <CatalogSkeleton />;
+  if (!workspaces.length) return <WorkspaceWelcome />;
+  return (
+    <WorkspaceProvider key={workspace.id}>
+      <Suspense fallback={<ViewSkeleton />}>
+        <Workspace />
+      </Suspense>
+    </WorkspaceProvider>
+  );
+}
+
+function WorkspaceWelcome() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [onboarding, setOnboarding] = useState(true);
+  return (
+    <main className="workspace-welcome">
+      <EmptyState
+        title={t("workspace.freshStart")}
+        description={t("workspace.noWorkspaces")}
+        action={
+          <button
+            className="button button-primary"
+            onClick={() => setOpen(true)}
+          >
+            <Plus size={16} />
+            {t("workspace.createWorkspace")}
+          </button>
+        }
+      />
+      {open && (
+        <CatalogDialog
+          mode="workspaces"
+          onClose={() => setOpen(false)}
+          onWorkspace={() => setOpen(false)}
+          onProject={() => setOpen(false)}
+        />
+      )}
+      {onboarding && !open && (
+        <OnboardingDialog
+          step={0}
+          onClose={() => setOnboarding(false)}
+          onAction={() => {
+            setOnboarding(false);
+            setOpen(true);
+          }}
+        />
+      )}
+    </main>
   );
 }
 
 export default function WorkspaceApp() {
   return (
-    <WorkspaceProvider>
-      <Suspense fallback={<ViewSkeleton />}>
-        <Workspace />
-      </Suspense>
-    </WorkspaceProvider>
+    <CatalogProvider>
+      <ScopedWorkspace />
+    </CatalogProvider>
   );
 }

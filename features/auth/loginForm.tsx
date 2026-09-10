@@ -8,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { loginSchema, type LoginFormValues } from "@/lib/schemas/auth.schema";
 import { SocialButtons } from "./socialButtons";
+import { useTranslation } from "react-i18next";
 
 export function LoginForm({
   onSwitchToRegister,
@@ -16,6 +17,7 @@ export function LoginForm({
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
 }) {
+  const { t } = useTranslation();
   const [notice, setNotice] = useState("");
   const {
     register,
@@ -30,30 +32,24 @@ export function LoginForm({
     <div className="space-y-6">
       <header>
         <h1 className="text-[30px] font-semibold tracking-tight sm:text-[34px]">
-          Welcome back.
+          {t("auth.welcome")}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          Your next great idea is waiting for you.
-        </p>
+        <p className="mt-2 text-sm leading-6 text-muted">{t("auth.waiting")}</p>
       </header>
       <SocialButtons disabled={isSubmitting} />
       <div className="auth-divider flex items-center gap-4 text-xs text-muted">
         <span />
-        or continue with email
+        {t("auth.continueEmail")}
         <span />
       </div>
       <form
         noValidate
-        onSubmit={handleSubmit(() =>
-          setNotice(
-            "Sign-in is not connected in this preview. You can explore the demo workspace using the link above.",
-          ),
-        )}
+        onSubmit={handleSubmit(() => setNotice(t("auth.signInPreviewNotice")))}
         className="space-y-5"
       >
         <Input
-          label="Email or username"
-          placeholder="you@company.com"
+          label={t("auth.emailOrUsername")}
+          placeholder={t("auth.emailPlaceholder")}
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
@@ -62,8 +58,8 @@ export function LoginForm({
           {...register("identifier")}
         />
         <Input
-          label="Password"
-          placeholder="Enter your password"
+          label={t("auth.password")}
+          placeholder={t("auth.passwordPlaceholder")}
           autoComplete="current-password"
           passwordToggle
           icon={<LockKeyhole size={17} />}
@@ -71,13 +67,13 @@ export function LoginForm({
           {...register("password")}
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Checkbox label="Remember me" {...register("rememberMe")} />
+          <Checkbox label={t("auth.remember")} {...register("rememberMe")} />
           <button
             type="button"
             className="auth-text-link text-xs"
             onClick={onForgotPassword}
           >
-            Forgot password?
+            {t("auth.forgot")}
           </button>
         </div>
         {notice && (
@@ -91,7 +87,7 @@ export function LoginForm({
           className="auth-submit group"
           isLoading={isSubmitting}
         >
-          Sign In{" "}
+          {t("auth.signIn")}{" "}
           <ArrowRight
             size={16}
             className="transition-transform duration-300 group-hover:translate-x-1"
@@ -99,12 +95,12 @@ export function LoginForm({
         </Button>
       </form>
       <p className="text-center text-xs text-muted">
-        New around here?{" "}
+        {t("auth.newHere")}{" "}
         <button
           className="auth-text-link font-medium"
           onClick={onSwitchToRegister}
         >
-          Create an account
+          {t("auth.createAccount")}
         </button>
       </p>
     </div>

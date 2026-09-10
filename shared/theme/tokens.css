@@ -1,39 +1,39 @@
 :root {
   color-scheme: light;
 
-  /* พื้นหลังฟ้าอมม่วงอ่อน */
-  --canvas: #f5f6fd;
-  --surface: #ffffff;
-  --sidebar: #f9fafe;
-  --column-bg: #eef0fb;
-  --surface-hover: #e9ecfa;
+  /* Shared light space palette used by the landing and auth screens. */
+  --canvas: #f7f7fb;
+  --surface: #f1f1f8;
+  --sidebar: #f1f1f8;
+  --column-bg: #eeeef7;
+  --surface-hover: #ffffff;
 
   /* ตัวอักษร */
-  --ink: #131530;
-  --secondary: #4b5075;
-  --muted: #6a6f99;
-  --faint: #8a8fb4;
+  --ink: #181827;
+  --secondary: #55566f;
+  --muted: #77788f;
+  --faint: #9292a8;
 
   /* เส้นขอบ */
-  --border: #e4e7f7;
-  --border-strong: #cbd0ec;
-  --card-border: #dde0f3;
-  --card-hover: #a9a6f5;
+  --border: #e2e2ed;
+  --border-strong: #bdb6f2;
+  --card-border: #e2e2ed;
+  --card-hover: #bdb6f2;
 
   /* สีม่วงจักรวาลสำหรับ Button และ Active */
-  --accent: #5b4bd6;
-  --accent-hover: #4a39c4;
-  --accent-soft: #ecebfd;
-  --accent-border: #b6aef4;
+  --accent: #6959d8;
+  --accent-hover: #5748c7;
+  --accent-soft: #f1efff;
+  --accent-border: #bdb6f2;
   --accent-foreground: #ffffff;
 
   /* พื้นหลังส่วนพิเศษ */
-  --green-soft: #ecf0fe;
-  --note-bg: #f4f5fe;
-  --note-border: #dee1f6;
+  --green-soft: #eef8f4;
+  --note-bg: #f1efff;
+  --note-border: #e2e2ed;
 
   --scrollbar: #c4c8e9;
-  --popover-shadow: 0 8px 35px #1a1f4a14, 0 2px 5px #1a1f4a0a;
+  --popover-shadow: 0 18px 45px #29204a12, 0 3px 10px #29204a0b;
 
   /* ── COSMIC TOKENS ── */
   --star: #6b74d8;
@@ -48,10 +48,12 @@
   --void: #e8ebfa;
   --glow: 0 0 0 1px #5b4bd61f, 0 8px 30px #5b4bd626;
   --glow-strong: 0 0 24px #5b4bd63d, 0 0 60px #7c6cff29;
-  --cosmic-gradient: linear-gradient(135deg,
-      #5b4bd6 0%,
-      #8b5cf6 45%,
-      #22a3d8 100%);
+  --cosmic-gradient: linear-gradient(
+    135deg,
+    #5b4bd6 0%,
+    #8b5cf6 45%,
+    #22a3d8 100%
+  );
   --grid-line: #5b4bd60f;
 }
 
@@ -62,31 +64,30 @@
   color-scheme: dark;
 
   /* พื้นหลังดำอมน้ำเงิน */
-  --canvas: radial-gradient(ellipse at 42% 42%, #21154265, transparent 65%),
-    linear-gradient(155deg, #101014, #121117 70%, #0b0b0e);
-  --surface: #101014;
-  --sidebar: #0b0b0f;
-  --column-bg: #141a3340;
-  --surface-hover: #1a1f3d7d;
+  --canvas: #0d0f17;
+  --surface: #151827;
+  --sidebar: #10121d;
+  --column-bg: #171b2d;
+  --surface-hover: #202542;
 
   /* ตัวอักษร */
-  --ink: #eef0ff;
-  --secondary: #b4bade;
-  --muted: #8c92ba;
-  --faint: #6f76a2;
+  --ink: #f4f4ff;
+  --secondary: #c0c2d8;
+  --muted: #a4a8c5;
+  --faint: #8287a8;
 
   /* เส้นขอบ */
-  --border: #24273b;
-  --border-strong: #191b2e;
-  --card-border: #070f4f;
+  --border: #292d44;
+  --border-strong: #343851;
+  --card-border: #303550;
   --card-hover: #5d64bd;
 
   /* สีม่วงเรืองแสง */
-  --accent: #9064d5;
-  --accent-hover: #a496ff;
-  --accent-soft: #1a1846;
-  --accent-border: #4a3faa;
-  --accent-foreground: #06071a;
+  --accent: #a78bfa;
+  --accent-hover: #ede9fe;
+  --accent-soft: #323039;
+  --accent-border: #6f63c9;
+  --accent-foreground: #0d0f17;
 
   /* พื้นหลังส่วนพิเศษ */
   --green-soft: #141433;
@@ -106,10 +107,12 @@
   --void: #05060f;
   --glow: 0 0 0 1px #8b7bff2e, 0 8px 30px #8b7bff1f;
   --glow-strong: 0 0 26px #8b7bff59, 0 0 70px #7b5cff33;
-  --cosmic-gradient: linear-gradient(135deg,
-      #8b7bff 0%,
-      #c46bff 45%,
-      #21d4fd 100%);
+  --cosmic-gradient: linear-gradient(
+    135deg,
+    #8b7bff 0%,
+    #c46bff 45%,
+    #21d4fd 100%
+  );
   --grid-line: #ffffff0a;
 }
 

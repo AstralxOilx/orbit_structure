@@ -1,3 +1,5 @@
+import { Tooltip } from "./tooltip";
+
 export interface AvatarProps {
   name?: string;
   initials?: string;
@@ -23,13 +25,13 @@ export function Avatar({
       .map((part) => part[0])
       .join("")
       .toUpperCase();
-  return (
+  const avatar = (
     <span
       className={`avatar avatar-${size} avatar-${color}`}
-      title={label ? name : undefined}
       aria-label={label ? name : undefined}
     >
       {text || "?"}
     </span>
   );
+  return label ? <Tooltip content={name}>{avatar}</Tooltip> : avatar;
 }

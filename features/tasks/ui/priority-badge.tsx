@@ -1,5 +1,6 @@
 import { ArrowUp, ChevronsUp, Minus, ArrowDown } from "lucide-react";
 import type { Priority } from "../domain/task";
+import { Tooltip } from "@/shared/ui";
 export function PriorityBadge({
   priority,
   compact = false,
@@ -16,18 +17,17 @@ export function PriorityBadge({
           ? ArrowDown
           : Minus;
   return (
-    <span
-      className={`priority priority-${priority}`}
-      title={`${priority} priority`}
-    >
-      <Icon size={12} strokeWidth={2.2} />
-      {!compact && (
-        <span>
-          {priority === "normal"
-            ? "Medium"
-            : priority.charAt(0).toUpperCase() + priority.slice(1)}
-        </span>
-      )}
-    </span>
+    <Tooltip content={`${priority} priority`}>
+      <span className={`priority priority-${priority}`}>
+        <Icon size={12} strokeWidth={2.2} />
+        {!compact && (
+          <span>
+            {priority === "normal"
+              ? "Medium"
+              : priority.charAt(0).toUpperCase() + priority.slice(1)}
+          </span>
+        )}
+      </span>
+    </Tooltip>
   );
 }

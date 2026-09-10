@@ -1,6 +1,9 @@
 "use client";
 
+import { Select } from "@/shared/ui/select";
+
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { PriorityBadge } from "@/features/tasks/ui/priority-badge";
 import { StatusIcon } from "@/features/tasks/ui/status-icon";
@@ -10,6 +13,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { EmptyState } from "@/shared/ui";
 import { useRepository } from "@/features/workspace/provider";
+import { taskStatusLabel } from "@/shared/i18n/task-copy";
 import {
   STATUSES,
   STATUS_META,
@@ -21,12 +25,19 @@ export default function ListView({
   tasks,
   onOpen,
   onAdd,
+  onNotify,
+  hasTasks = tasks.length > 0,
+  onClearFilters,
 }: {
   tasks: Task[];
   onOpen: (id: string) => void;
   onAdd: (status: TaskStatus) => void;
+  onNotify?: (message: string, action?: () => void) => void;
+  hasTasks?: boolean;
+  onClearFilters?: () => void;
 }) {
-  "use no memo"; // Virtualizer methods read live measurements.
+  const { t } = useTranslation();
+  ("use no memo"); // Virtualizer methods read live measurements.
   const parent = useRef<HTMLDivElement>(null);
   const repository = useRepository();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -51,9 +62,10 @@ export default function ListView({
     <div className="list-view">
       {selected.size > 0 && (
         <div className="bulk-toolbar">
-          <strong>{selected.size} selected</strong>
-          <select
-            aria-label="Move selected tasks"
+          <strong>{t("workspace.selected", { count: selected.size })}</strong>
+          <Select
+            density="compact"
+            aria-label={t("workspace.moveSelectedTasks")}
             defaultValue=""
             onChange={(event) => {
               selected.forEach((id) =>
@@ -63,41 +75,53 @@ export default function ListView({
             }}
           >
             <option value="" disabled>
-              Move to…
+              {t("workspace.moveToPlaceholder")}
             </option>
             {STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_META[status].label}
+                {taskStatusLabel(t, status)}
               </option>
             ))}
-          </select>
+          </Select>
           <button
             onClick={() => {
+              if (
+                !window.confirm(
+                  t("workspace.deleteSelectedConfirm", {
+                    count: selected.size,
+                  }),
+                )
+              )
+                return;
+              const deletedIds = [...selected];
               selected.forEach((id) =>
                 repository.update(id, { deleted: true }),
               );
               setSelected(new Set());
+              onNotify?.(t("workspace.tasksDeleted"), () =>
+                deletedIds.forEach((id) => repository.restore(id)),
+              );
             }}
           >
             <Trash2 size={14} />
-            Delete
+            {t("workspace.deleteAction")}
           </button>
           <button onClick={() => setSelected(new Set())}>
-            Clear selection
+            {t("workspace.clearSelection")}
           </button>
         </div>
       )}
       <div
         className="task-table"
         role="table"
-        aria-label="Project tasks"
+        aria-label={t("workspace.projectTasks")}
         aria-rowcount={tasks.length + 1}
       >
         <div className="list-header list-grid" role="row">
           <span role="columnheader">
             <input
               type="checkbox"
-              aria-label="Select all visible tasks"
+              aria-label={t("workspace.selectAllTasks")}
               checked={
                 tasks.length > 0 && tasks.every((task) => selected.has(task.id))
               }
@@ -110,14 +134,14 @@ export default function ListView({
               }
             />
           </span>
-          <span role="columnheader">Task name</span>
+          <span role="columnheader">{t("workspace.taskName")}</span>
           <span role="columnheader">
-            Status <ChevronDown size={12} />
+            {t("workspace.status")} <ChevronDown size={12} />
           </span>
-          <span role="columnheader">Priority</span>
-          <span role="columnheader">Assignee</span>
-          <span role="columnheader">Due date</span>
-          <span role="columnheader">Tags</span>
+          <span role="columnheader">{t("workspace.priority")}</span>
+          <span role="columnheader">{t("workspace.assignee")}</span>
+          <span role="columnheader">{t("workspace.dueDate")}</span>
+          <span role="columnheader">{t("workspace.tags")}</span>
         </div>
         <div ref={parent} className="list-scroll" role="rowgroup">
           <div
@@ -152,8 +176,12 @@ export default function ListView({
                     </button>
                   </span>
                   <span role="cell">
-                    <select
-                      aria-label={`Status for ${task.title}`}
+                    <Select
+                      density="compact"
+                      variant="subtle"
+                      aria-label={t("workspace.statusForTask", {
+                        title: task.title,
+                      })}
                       className={`inline-status status-${STATUS_META[task.status].color}`}
                       value={task.status}
                       onChange={(event) =>
@@ -165,10 +193,10 @@ export default function ListView({
                     >
                       {STATUSES.map((status) => (
                         <option key={status} value={status}>
-                          {STATUS_META[status].label}
+                          {taskStatusLabel(t, status)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </span>
                   <span role="cell">
                     <PriorityBadge priority={task.priority} />
@@ -188,11 +216,38 @@ export default function ListView({
               );
             })}
           </div>
-          {!tasks.length && <EmptyState />}
+          {!tasks.length && (
+            <EmptyState
+              title={
+                hasTasks
+                  ? t("workspace.noMatchingTasks")
+                  : t("workspace.noTasksYet")
+              }
+              description={
+                hasTasks
+                  ? t("workspace.changeSearchFilters")
+                  : t("workspace.firstTaskDescription")
+              }
+              action={
+                hasTasks ? (
+                  <button className="button" onClick={onClearFilters}>
+                    {t("workspace.clearFilters")}
+                  </button>
+                ) : (
+                  <button
+                    className="button button-primary"
+                    onClick={() => onAdd("backlog")}
+                  >
+                    <Plus size={16} /> {t("workspace.addTaskAction")}
+                  </button>
+                )
+              }
+            />
+          )}
         </div>
       </div>
       <button className="list-add" onClick={() => onAdd("backlog")}>
-        <Plus size={16} /> Add a new task
+        <Plus size={16} /> {t("workspace.addNewTask")}
       </button>
     </div>
   );

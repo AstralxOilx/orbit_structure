@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useTranslation } from "react-i18next";
 import { AlignLeft, Check, Radio } from "lucide-react";
 import { createDocumentSession } from "./document-session";
 
@@ -11,6 +12,7 @@ export default function DescriptionEditor({
   taskId: string;
   initialText: string;
 }) {
+  const { t } = useTranslation();
   const [session] = useState(() => createDocumentSession(taskId, initialText));
   const snapshot = useSyncExternalStore(
     session.subscribe,
@@ -23,7 +25,7 @@ export default function DescriptionEditor({
       <div className="section-label">
         <h3>
           <AlignLeft size={15} />
-          Description
+          {t("workspace.description")}
         </h3>
         <span className={snapshot.saved ? "editor-saved" : "editor-error"}>
           {snapshot.connected ? (
@@ -42,11 +44,11 @@ export default function DescriptionEditor({
         </span>
       </div>
       <textarea
-        aria-label="Task description"
+        aria-label={t("workspace.taskDescriptionLabel")}
         className="description-editor"
         value={snapshot.text}
         onChange={(event) => session.replace(event.target.value)}
-        placeholder="What needs to happen? Add a little context…"
+        placeholder={t("workspace.taskDescriptionPlaceholder")}
       />
     </section>
   );

@@ -11,7 +11,7 @@
   );
   border-right-color: var(--border-strong);
   isolation: isolate;
-} 
+}
 .sidebar .brand-row {
   flex: 0 0 78px;
 }
@@ -111,6 +111,7 @@
 }
 .sidebar .workspace-switcher {
   border-color: var(--border-strong);
+  margin-bottom: 4px;
   transition:
     border-color 180ms,
     background-color 180ms,
@@ -118,6 +119,10 @@
     max-height 300ms var(--sidebar-ease),
     margin 300ms var(--sidebar-ease),
     padding 300ms var(--sidebar-ease);
+}
+.sidebar .primary-nav > .ui-tooltip,
+.sidebar .project-nav > .ui-tooltip {
+  width: 100%;
 }
 .sidebar .workspace-switcher:hover {
   background: var(--surface-hover);
@@ -141,6 +146,74 @@
 }
 .sidebar-mobile-close {
   display: none;
+}
+.legacy-workspace-logo {
+  display: none !important;
+}
+.workspace-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.workspace-logo-md {
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
+}
+.workspace-logo-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 11px;
+}
+.workspace-logo-lg {
+  width: 58px;
+  height: 58px;
+  font-size: 18px;
+  flex: 0 0 58px;
+}
+.workspace-logo-purple {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.workspace-logo-blue {
+  color: #5474af;
+  background: #edf3fc;
+}
+.workspace-logo-peach {
+  color: #b87852;
+  background: #fcf0e6;
+}
+.workspace-logo-green {
+  color: #54745c;
+  background: #eef4ed;
+}
+.workspace-settings-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px 12px 14px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: left;
+}
+.workspace-settings-link:hover {
+  color: var(--accent);
+}
+@media (min-width: 901px) {
+  .workspace.sidebar-collapsed .workspace-settings-link {
+    max-height: 0;
+    min-height: 0;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 
 @media (min-width: 901px) {
@@ -231,9 +304,16 @@
     pointer-events: none;
   }
   .workspace.sidebar-collapsed .nav-item {
-    padding-left: 14px;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
   }
-  .workspace.sidebar-collapsed .nav-item > span:not(.project-dot) {
+  .workspace.sidebar-collapsed .nav-count {
+    display: none;
+  }
+  .workspace.sidebar-collapsed
+    .nav-item
+    > span:not(.project-dot):not(.project-nav-icon) {
     position: absolute;
     left: 43px;
   }

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -13,11 +14,20 @@ import {
   createTaskRepository,
   type TaskRepository,
 } from "../tasks/model/repository";
+import { useCatalog } from "./catalog";
+import { INITIAL_TASKS } from "./data";
+import { ViewSkeleton } from "@/shared/ui";
 
 const RepositoryContext = createContext<TaskRepository | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [repository] = useState(createTaskRepository);
+  const { workspace } = useCatalog();
+  const [repository] = useState(() =>
+    createTaskRepository(
+      workspace.id === "studio" ? INITIAL_TASKS : [],
+      workspace.id,
+    ),
+  );
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -26,10 +36,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         },
       }),
   );
-  useEffect(() => repository.start(), [repository]);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    const stop = repository.start();
+    queueMicrotask(() => setStarted(true));
+    return stop;
+  }, [repository]);
   return (
     <QueryClientProvider client={queryClient}>
-      <RepositoryContext value={repository}>{children}</RepositoryContext>
+      <RepositoryContext value={repository}>
+        {started ? children : <ViewSkeleton />}
+      </RepositoryContext>
     </QueryClientProvider>
   );
 }
@@ -43,15 +60,21 @@ export function useRepository() {
 
 export function useTasks() {
   const repository = useRepository();
-  return useSyncExternalStore(
+  const { projects } = useCatalog();
+  const tasks = useSyncExternalStore(
     repository.subscribe,
     repository.getSnapshot,
     repository.getServerSnapshot,
   );
+  return useMemo(() => {
+    const ids = new Set(projects.map((project) => project.id));
+    return tasks.filter((task) => ids.has(task.projectId));
+  }, [tasks, projects]);
 }
 
 export function useTask(id: string) {
   const repository = useRepository();
+  const { projects } = useCatalog();
   const subscribe = useCallback(
     (notify: () => void) => repository.subscribeTask(id, notify),
     [repository, id],
@@ -61,7 +84,10 @@ export function useTask(id: string) {
     () => repository.getServerTask(id),
     [repository, id],
   );
-  return useSyncExternalStore(subscribe, read, readServer);
+  const task = useSyncExternalStore(subscribe, read, readServer);
+  return task && projects.some((project) => project.id === task.projectId)
+    ? task
+    : undefined;
 }
 
 export function useSaveState() {

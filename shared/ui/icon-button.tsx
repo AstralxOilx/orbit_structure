@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Tooltip } from "./tooltip";
 
 export function IconButton({
   label,
@@ -7,14 +8,15 @@ export function IconButton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   return (
-    <button
-      type="button"
-      className={`icon-button ${className}`}
-      title={label}
-      aria-label={label}
-      {...props}
-    >
-      {children}
-    </button>
+    <Tooltip content={label}>
+      <button
+        type="button"
+        className={`icon-button ${className}`}
+        aria-label={label}
+        {...props}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }

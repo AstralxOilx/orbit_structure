@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type Provider = "google" | "github";
 
@@ -43,6 +44,7 @@ const GithubIcon = () => (
 );
 
 export function SocialButtons({ onProviderClick, disabled = false }: Props) {
+  const { t } = useTranslation();
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState<Provider | null>(null);
 
@@ -51,14 +53,16 @@ export function SocialButtons({ onProviderClick, disabled = false }: Props) {
       setNotice("");
       if (!onProviderClick) {
         setNotice(
-          `${provider === "google" ? "Google" : "GitHub"} sign-in is not connected in this preview.`,
+          t("auth.socialUnavailable", {
+            provider: provider === "google" ? "Google" : "GitHub",
+          }),
         );
         return;
       }
       setPending(provider);
       await onProviderClick(provider);
     } catch {
-      setNotice("Could not connect. Please try again.");
+      setNotice(t("auth.socialError"));
     } finally {
       setPending(null);
     }
@@ -96,7 +100,7 @@ export function SocialButtons({ onProviderClick, disabled = false }: Props) {
                 {p.icon}
               </span>
             )}
-            <span>Continue with {p.label}</span>
+            <span>{t("auth.continueWith", { provider: p.label })}</span>
           </button>
         ))}
       </div>

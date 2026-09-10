@@ -1,6 +1,11 @@
 "use client";
 
+import { DateInput } from "@/shared/ui/date-input";
+
+import { Select } from "@/shared/ui/select";
+
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import dynamic from "next/dynamic";
@@ -17,8 +22,16 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { useRepository, useTask } from "@/features/workspace/provider";
-import { MEMBERS, PROJECTS, TAG_COLORS } from "@/features/workspace/data";
+import { Input } from "@/shared/ui";
+import {
+  useRepository,
+  useSaveState,
+  useTask,
+} from "@/features/workspace/provider";
+import { TAG_COLORS } from "@/features/workspace/data";
+import { useMembers } from "@/features/workspace/catalog";
+import { useProjects } from "@/features/workspace/catalog";
+import { taskStatusLabel } from "@/shared/i18n/task-copy";
 import { Dialog } from "@/shared/ui";
 import {
   STATUSES,
@@ -39,11 +52,12 @@ function TaskTitleEditor({
   title: string;
   onSave: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <textarea
       className="task-title-input"
-      aria-label="Task title"
+      aria-label={t("workspace.taskTitle")}
       value={draft ?? title}
       rows={2}
       maxLength={180}
@@ -64,10 +78,15 @@ export default function TaskDrawer({
 }: {
   taskId: string;
   onClose: () => void;
-  onNotify: (message: string) => void;
+  onNotify: (message: string, action?: () => void) => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "th" ? "th-TH" : "en-US";
   const task = useTask(taskId);
+  const PROJECTS = useProjects();
+  const MEMBERS = useMembers();
   const repository = useRepository();
+  const saving = useSaveState().status === "saving";
   const [comment, setComment] = useState("");
   const [subtask, setSubtask] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -99,9 +118,9 @@ export default function TaskDrawer({
           <label>
             <span>
               <StatusIcon status={task.status} />
-              Status
+              {t("workspace.status")}
             </span>
-            <select
+            <Select
               value={task.status}
               onChange={(event) =>
                 repository.move(task.id, event.target.value as TaskStatus)
@@ -109,39 +128,39 @@ export default function TaskDrawer({
             >
               {STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_META[status].label}
+                  {taskStatusLabel(t, status)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>
               <UserRound size={15} />
-              Assignee
+              {t("workspace.assignee")}
             </span>
             <span className="assignee-control">
               <Avatar id={task.assigneeId} size="xs" />
-              <select
+              <Select
                 value={task.assigneeId}
                 onChange={(event) =>
                   repository.update(task.id, { assigneeId: event.target.value })
                 }
               >
-                <option value="">Unassigned</option>
+                <option value="">{t("workspace.unassigned")}</option>
                 {MEMBERS.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </span>
           </label>
           <label>
             <span>
               <Flag size={15} />
-              Priority
+              {t("workspace.priority")}
             </span>
-            <select
+            <Select
               value={task.priority}
               onChange={(event) =>
                 repository.update(task.id, {
@@ -153,42 +172,42 @@ export default function TaskDrawer({
               <option value="normal">— Medium</option>
               <option value="high">↑ High</option>
               <option value="urgent">⇈ Urgent</option>
-            </select>
+            </Select>
           </label>
-          <label>
+          <div className="task-date-property">
             <span>
               <CalendarDays size={15} />
-              Start date
+              {t("workspace.startDate")}
             </span>
-            <input
-              type="date"
-              aria-label="Task start date"
+            <DateInput
+              density="compact"
+              aria-label={t("workspace.taskStartDate")}
               value={task.startOn}
               max={task.dueOn || undefined}
-              onChange={(event) =>
-                repository.update(task.id, { startOn: event.target.value })
+              onValueChange={(value) =>
+                repository.update(task.id, { startOn: value })
               }
             />
-          </label>
-          <label>
+          </div>
+          <div className="task-date-property">
             <span>
               <CalendarDays size={15} />
-              Due date
+              {t("workspace.dueDate")}
             </span>
-            <input
-              type="date"
-              aria-label="Task due date"
+            <DateInput
+              density="compact"
+              aria-label={t("workspace.taskDueDate")}
               value={task.dueOn}
               min={task.startOn || undefined}
-              onChange={(event) =>
-                repository.update(task.id, { dueOn: event.target.value })
+              onValueChange={(value) =>
+                repository.update(task.id, { dueOn: value })
               }
             />
-          </label>
+          </div>
           <div className="property-tags">
             <span>
               <TagIcon size={15} />
-              Tags
+              {t("workspace.tags")}
             </span>
             <div>
               {Object.keys(TAG_COLORS).map((tag) => (
@@ -219,7 +238,7 @@ export default function TaskDrawer({
           <div className="section-label">
             <h3>
               <ListChecks size={16} />
-              Checklist{" "}
+              {t("workspace.checklist")}{" "}
               <span className="small-count">
                 {completed}/{task.subtasks.length}
               </span>
@@ -265,20 +284,24 @@ export default function TaskDrawer({
             }}
           >
             <Plus size={15} />
-            <input
+            <Input
+              label=""
               value={subtask}
+              className="subtask-input"
               onChange={(event) => setSubtask(event.target.value)}
-              placeholder="Add a checklist item"
-              aria-label="New checklist item"
+              placeholder={t("workspace.addChecklistItem")}
+              aria-label={t("workspace.newChecklistItem")}
             />
-            <button type="submit">Add</button>
+            <button type="submit" disabled={saving}>
+              {t("workspace.addAction")}
+            </button>
           </form>
         </section>
         <section className="drawer-section">
           <div className="section-label">
             <h3>
               <MessageSquare size={15} />
-              Activity{" "}
+              {t("workspace.activity")}{" "}
               <span className="small-count">{task.comments.length}</span>
             </h3>
           </div>
@@ -292,7 +315,7 @@ export default function TaskDrawer({
                       ?.name ?? "Team member"}
                   </strong>
                   <time>
-                    {new Intl.DateTimeFormat("en", {
+                    {new Intl.DateTimeFormat(locale, {
                       month: "short",
                       day: "numeric",
                     }).format(new Date(item.createdAt))}
@@ -322,8 +345,8 @@ export default function TaskDrawer({
             }}
           >
             <textarea
-              aria-label="Add a comment"
-              placeholder="Leave a thought for your team…"
+              aria-label={t("workspace.addComment")}
+              placeholder={t("workspace.leaveThought")}
               value={comment}
               onChange={(event) => setComment(event.target.value)}
             />
@@ -331,10 +354,10 @@ export default function TaskDrawer({
               <Avatar id="alex" size="xs" />
               <button
                 className="button button-primary button-small"
-                disabled={!comment.trim()}
+                disabled={saving || !comment.trim()}
               >
                 <Send size={13} />
-                Comment
+                {t("workspace.comment")}
               </button>
             </div>
           </form>
@@ -342,23 +365,28 @@ export default function TaskDrawer({
         <div className="drawer-danger">
           {confirmDelete ? (
             <>
-              <span>Delete this task?</span>
+              <span>{t("workspace.deleteTaskConfirm")}</span>
               <button
                 className="danger-button"
+                disabled={saving}
                 onClick={() => {
                   repository.update(task.id, { deleted: true });
                   onClose();
-                  onNotify("Task deleted");
+                  onNotify(t("workspace.taskDeleted"), () =>
+                    repository.restore(task.id),
+                  );
                 }}
               >
-                Delete task
+                {t("workspace.deleteTask")}
               </button>
-              <button onClick={() => setConfirmDelete(false)}>Cancel</button>
+              <button onClick={() => setConfirmDelete(false)}>
+                {t("workspace.cancel")}
+              </button>
             </>
           ) : (
             <button onClick={() => setConfirmDelete(true)}>
               <Trash2 size={14} />
-              Delete task
+              {t("workspace.deleteTask")}
             </button>
           )}
         </div>
@@ -378,8 +406,11 @@ export function NewTaskDialog({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const { t } = useTranslation();
+  const MEMBERS = useMembers();
   const repository = useRepository();
   const [title, setTitle] = useState("");
+  const PROJECTS = useProjects();
   const [description, setDescription] = useState("");
   const [taskStatus, setTaskStatus] = useState(status);
   const [priority, setPriority] = useState<Priority>("normal");
@@ -393,7 +424,7 @@ export function NewTaskDialog({
       className="new-task-dialog"
     >
       <p className="dialog-description">
-        Add a task to{" "}
+        {t("workspace.addTaskTo")}{" "}
         {PROJECTS.find((project) => project.id === projectId)?.name}.
       </p>
       <form
@@ -423,30 +454,29 @@ export function NewTaskDialog({
           onCreated(id);
         }}
       >
+        <Input
+          label={t("workspace.taskName")}
+          autoFocus
+          placeholder={t("workspace.whatNeedsDone")}
+          value={title}
+          maxLength={180}
+          required
+          onChange={(event) => setTitle(event.target.value)}
+        />
         <label className="form-label">
-          Task name
-          <input
-            autoFocus
-            placeholder="What needs to get done?"
-            value={title}
-            maxLength={180}
-            required
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-        <label className="form-label">
-          Description <span className="muted">optional</span>
+          {t("workspace.description")}{" "}
+          <span className="muted">{t("workspace.optional")}</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="A little context goes a long way…"
+            placeholder={t("workspace.contextPlaceholder")}
             rows={3}
           />
         </label>
         <div className="form-grid">
           <label className="form-label">
-            Status
-            <select
+            {t("workspace.status")}
+            <Select
               value={taskStatus}
               onChange={(event) =>
                 setTaskStatus(event.target.value as TaskStatus)
@@ -454,65 +484,64 @@ export function NewTaskDialog({
             >
               {STATUSES.map((value) => (
                 <option key={value} value={value}>
-                  {STATUS_META[value].label}
+                  {taskStatusLabel(t, value)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="form-label">
-            Priority
-            <select
+            {t("workspace.priority")}
+            <Select
               value={priority}
               onChange={(event) => setPriority(event.target.value as Priority)}
             >
-              <option value="low">Low</option>
-              <option value="normal">Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
+              <option value="low">{t("workspace.low")}</option>
+              <option value="normal">{t("workspace.medium")}</option>
+              <option value="high">{t("workspace.high")}</option>
+              <option value="urgent">{t("workspace.urgent")}</option>
+            </Select>
           </label>
           <label className="form-label">
-            Assignee
-            <select
+            {t("workspace.assignee")}
+            <Select
               value={assignee}
               onChange={(event) => setAssignee(event.target.value)}
             >
-              <option value="">Unassigned</option>
+              <option value="">{t("workspace.unassigned")}</option>
               {MEMBERS.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <label className="form-label">
-            Due date
-            <input
-              type="date"
+          <div className="form-label">
+            <DateInput
+              label={t("workspace.dueDate")}
               value={due}
-              onChange={(event) => setDue(event.target.value)}
+              onValueChange={(value) => setDue(value)}
             />
-          </label>
+          </div>
           <label className="form-label">
-            Tag
-            <select
+            {t("workspace.tags")}
+            <Select
               value={tag}
               onChange={(event) => setTag(event.target.value)}
             >
-              <option value="">No tag</option>
+              <option value="">{t("workspace.noTag")}</option>
               {Object.keys(TAG_COLORS).map((value) => (
                 <option key={value}>{value}</option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
         <div className="dialog-actions">
           <button className="button" type="button" onClick={onClose}>
-            Cancel
+            {t("workspace.cancel")}
           </button>
           <button className="button button-primary" disabled={!title.trim()}>
             <Plus size={15} />
-            Create task
+            {t("workspace.createTask")}
           </button>
         </div>
       </form>

@@ -1,6 +1,9 @@
 "use client";
 
+import { Select } from "@/shared/ui/select";
+
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { StatusIcon } from "@/features/tasks/ui/status-icon";
 import {
@@ -23,8 +26,45 @@ import {
   UsersRound,
 } from "lucide-react";
 
-import { MEMBERS, PROJECTS } from "@/features/workspace/data";
+import { useMembers } from "@/features/workspace/catalog";
+import { useProjects } from "@/features/workspace/catalog";
+import { ProjectIcon } from "@/features/workspace/ui/project-icon";
 import { STATUSES, STATUS_META, type Task } from "@/features/tasks/domain/task";
+import { FlowCharts } from "./flow-charts";
+import { taskStatusLabel } from "@/shared/i18n/task-copy";
+
+type ChartTooltipEntry = {
+  name?: string;
+  value?: string | number;
+  color?: string;
+  payload?: { fill?: string };
+};
+
+function ThemeChartTooltip({
+  active,
+  label,
+  payload,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: ChartTooltipEntry[];
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      {label !== undefined && <strong>{label}</strong>}
+      {payload.map((entry) => {
+        const color = entry.color ?? entry.payload?.fill ?? "var(--accent)";
+        return (
+          <div className="chart-tooltip-row" key={entry.name}>
+            <span style={{ color }}>{entry.name}</span>
+            <b style={{ color }}>{entry.value}</b>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AnalyticsView({
   tasks,
@@ -35,7 +75,11 @@ export default function AnalyticsView({
   onProject: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "th" ? "th-TH" : "en-US";
+  const MEMBERS = useMembers();
   const [range, setRange] = useState("all");
+  const PROJECTS = useProjects();
   const scoped = useMemo(
     () =>
       range === "all"
@@ -49,7 +93,7 @@ export default function AnalyticsView({
       ...new Set(scoped.map((task) => task.dueOn).filter(Boolean)),
     ].sort();
     return dates.map((date) => ({
-      date: new Intl.DateTimeFormat("en", {
+      date: new Intl.DateTimeFormat(locale, {
         month: "short",
         day: "numeric",
         timeZone: "UTC",
@@ -59,40 +103,44 @@ export default function AnalyticsView({
         (task) => task.dueOn === date && task.status === "done",
       ).length,
     }));
-  }, [scoped]);
+  }, [scoped, locale]);
   const workload = MEMBERS.map((member) => ({
     name: member.name.split(" ")[0],
     tasks: scoped.filter(
       (task) => task.assigneeId === member.id && task.status !== "done",
     ).length,
-    fill: member.id === "alex" ? "#7560db" : "#d2c9f4",
+    fill: member.id === "alex" ? "var(--accent)" : "var(--accent-border)",
   }));
   const metrics = [
     {
-      label: "Total tasks",
+      label: t("workspace.totalTasks"),
       value: scoped.length,
-      detail: "Everything, in one place",
+      detail: t("workspace.everythingInOnePlace"),
       icon: Layers3,
       color: "purple",
     },
     {
-      label: "Completed",
+      label: t("workspace.completed"),
       value: completed,
-      detail: `${scoped.length ? Math.round((completed / scoped.length) * 100) : 0}% of all tasks`,
+      detail: t("workspace.percentOfAllTasks", {
+        percent: scoped.length
+          ? Math.round((completed / scoped.length) * 100)
+          : 0,
+      }),
       icon: CheckCircle2,
       color: "green",
     },
     {
-      label: "In progress",
+      label: t("workspace.inProgress"),
       value: scoped.filter((task) => task.status === "progress").length,
-      detail: "Moving things forward",
+      detail: t("workspace.movingThingsForward"),
       icon: CircleDot,
       color: "blue",
     },
     {
-      label: "Team members",
+      label: t("workspace.teamMembers"),
       value: MEMBERS.length,
-      detail: "Better, together",
+      detail: t("workspace.betterTogether"),
       icon: UsersRound,
       color: "orange",
     },
@@ -101,22 +149,22 @@ export default function AnalyticsView({
     <div className="analytics-view">
       <div className="analytics-intro">
         <div>
-          <span className="eyebrow">A LITTLE PERSPECTIVE</span>
-          <h2>Good work starts with a clear view.</h2>
-          <p>See where things stand, and what’s coming next.</p>
+          <span className="eyebrow">{t("workspace.perspectiveEyebrow")}</span>
+          <h2>{t("workspace.clearView")}</h2>
+          <p>{t("workspace.seeNext")}</p>
         </div>
-        <select
-          aria-label="Analytics project filter"
+        <Select
+          aria-label={t("workspace.allProjects")}
           value={range}
           onChange={(event) => setRange(event.target.value)}
         >
-          <option value="all">All projects</option>
+          <option value="all">{t("workspace.allProjects")}</option>
           {PROJECTS.map((project) => (
             <option value={project.id} key={project.id}>
               {project.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="metric-grid">
         {metrics.map((metric) => (
@@ -130,7 +178,9 @@ export default function AnalyticsView({
             <strong>
               {metric.value}
               <small>
-                {metric.label === "Completed" ? ` / ${scoped.length}` : ""}
+                {metric.label === t("workspace.completed")
+                  ? ` / ${scoped.length}`
+                  : ""}
               </small>
             </strong>
             <p>{metric.detail}</p>
@@ -141,13 +191,13 @@ export default function AnalyticsView({
         <section className="chart-card">
           <div className="chart-heading">
             <div>
-              <h3>Delivery outlook</h3>
-              <p>Tasks by due date · current project snapshot</p>
+              <h3>{t("workspace.deliveryOutlook")}</h3>
+              <p>{t("workspace.tasksByDueDate")}</p>
             </div>
             <span className="chart-legend">
               <i />
-              Scheduled <i className="green" />
-              Completed
+              {t("workspace.scheduled")} <i className="green" />
+              {t("workspace.completedLower")}
             </span>
           </div>
           <div className="chart-area">
@@ -186,19 +236,11 @@ export default function AnalyticsView({
                   tickLine={false}
                   tick={{ fill: "#92919c", fontSize: 11 }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--ink)",
-                    fontSize: 12,
-                  }}
-                />
+                <Tooltip content={<ThemeChartTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="planned"
-                  name="Scheduled"
+                  name={t("workspace.scheduled")}
                   stroke="#8066dd"
                   strokeWidth={2.5}
                   fill="url(#orbitChartFill)"
@@ -207,7 +249,7 @@ export default function AnalyticsView({
                 <Area
                   type="monotone"
                   dataKey="completed"
-                  name="Completed"
+                  name={t("workspace.completedLower")}
                   stroke="#70b696"
                   strokeWidth={2}
                   fill="transparent"
@@ -217,13 +259,13 @@ export default function AnalyticsView({
             </ResponsiveContainer>
           </div>
           <details className="chart-data-table">
-            <summary>View chart data</summary>
+            <summary>{t("workspace.viewChartData")}</summary>
             <table>
               <thead>
                 <tr>
-                  <th>Due date</th>
-                  <th>Scheduled</th>
-                  <th>Completed</th>
+                  <th>{t("workspace.dueDate")}</th>
+                  <th>{t("workspace.scheduled")}</th>
+                  <th>{t("workspace.completedLower")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,8 +283,8 @@ export default function AnalyticsView({
         <section className="chart-card">
           <div className="chart-heading">
             <div>
-              <h3>Team workload</h3>
-              <p>Open tasks per teammate</p>
+              <h3>{t("workspace.teamWorkload")}</h3>
+              <p>{t("workspace.openTasksPerTeammate")}</p>
             </div>
             <UsersRound size={17} className="muted" />
           </div>
@@ -262,44 +304,38 @@ export default function AnalyticsView({
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#92919c", fontSize: 11 }}
+                  tick={{ fill: "var(--muted)", fontSize: 11 }}
                   dy={8}
                 />
                 <YAxis
                   allowDecimals={false}
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#92919c", fontSize: 11 }}
+                  tick={{ fill: "var(--muted)", fontSize: 11 }}
                 />
                 <Tooltip
                   cursor={{ fill: "var(--surface-hover)" }}
-                  contentStyle={{
-                    borderRadius: 10,
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    fontSize: 12,
-                  }}
+                  content={<ThemeChartTooltip />}
                 />
                 <Bar
                   dataKey="tasks"
-                  name="Open tasks"
+                  name={t("workspace.openTasks")}
                   radius={[5, 5, 0, 0]}
                   isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="chart-footnote">
-            Task counts show distribution, not effort or capacity.
-          </p>
+          <p className="chart-footnote">{t("workspace.taskCountsNote")}</p>
         </section>
       </div>
+      <FlowCharts tasks={scoped} />
       <div className="dashboard-bottom">
         <section className="chart-card">
           <div className="chart-heading">
             <div>
-              <h3>Your projects</h3>
-              <p>A shared space for every big idea</p>
+              <h3>{t("workspace.yourProjects")}</h3>
+              <p>{t("workspace.sharedSpace")}</p>
             </div>
             <span className="small-count">{PROJECTS.length}</span>
           </div>
@@ -318,7 +354,7 @@ export default function AnalyticsView({
                   <span
                     className={`project-mini-icon project-icon-${project.color}`}
                   >
-                    <Layers3 size={17} />
+                    <ProjectIcon project={project} size={17} />
                   </span>
                   <span>
                     <strong>{project.name}</strong>
@@ -348,8 +384,8 @@ export default function AnalyticsView({
         <section className="chart-card">
           <div className="chart-heading">
             <div>
-              <h3>Keep things flowing</h3>
-              <p>Your workflow at a glance</p>
+              <h3>{t("workspace.keepFlowing")}</h3>
+              <p>{t("workspace.workflowGlance")}</p>
             </div>
             <CircleDot size={17} className="muted" />
           </div>
@@ -362,7 +398,7 @@ export default function AnalyticsView({
                 <div key={status}>
                   <span>
                     <StatusIcon status={status} />
-                    {STATUS_META[status].label}
+                    {taskStatusLabel(t, status)}
                   </span>
                   <div>
                     <i
@@ -384,7 +420,7 @@ export default function AnalyticsView({
                 {scoped.filter((task) => task.status === "review").length} tasks
                 ready for a fresh pair of eyes.
               </strong>
-              <span>A quick review keeps the momentum going.</span>
+              <span>{t("workspace.quickReview")}</span>
             </p>
           </div>
         </section>
@@ -392,8 +428,8 @@ export default function AnalyticsView({
       <section className="chart-card upcoming-section">
         <div className="chart-heading">
           <div>
-            <h3>Coming up next</h3>
-            <p>A few things to keep on your radar</p>
+            <h3>{t("workspace.comingNext")}</h3>
+            <p>{t("workspace.radar")}</p>
           </div>
           <CalendarDays size={17} className="muted" />
         </div>

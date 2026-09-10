@@ -1,0 +1,249 @@
+.ui-date-field {
+  --date-surface: var(--surface);
+  --date-ink: var(--ink);
+  --date-border: var(--border-strong);
+  --date-accent: var(--accent);
+  min-width: 0;
+  width: 100%;
+}
+.ui-date-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--secondary);
+}
+.ui-date-control {
+  position: relative;
+  min-width: 0;
+}
+.ui-date-field .ui-date-control input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 43px 8px 12px;
+  border: 1px solid var(--date-border);
+  border-radius: 9px;
+  background: var(--date-surface);
+  color: var(--date-ink);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.ui-date-field .ui-date-control input:hover:not(:disabled) {
+  border-color: var(--accent-border);
+}
+.ui-date-field .ui-date-control input:focus-visible {
+  outline: 2px solid var(--date-accent);
+  outline-offset: 2px;
+  border-color: var(--date-accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.ui-date-field .ui-date-control input[aria-invalid="true"] {
+  border-color: var(--auth-error);
+}
+.ui-date-field input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.ui-date-field input::-webkit-date-and-time-value {
+  text-align: left;
+}
+.ui-date-field input::-webkit-datetime-edit {
+  padding: 0;
+}
+.ui-date-field input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+.ui-date-field input::-webkit-datetime-edit-text {
+  color: var(--muted);
+  padding-inline: 2px;
+}
+.ui-date-trigger {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--date-accent);
+}
+.ui-date-trigger:hover:not(:disabled),
+.ui-date-trigger[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+.ui-date-field input:disabled,
+.ui-date-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ui-date-field[data-density="compact"] .ui-date-control input {
+  min-height: 32px;
+  padding-block: 5px;
+  font-size: 11px;
+  border-radius: 7px;
+}
+.ui-date-description {
+  font-size: 11px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+.ui-date-description[role="alert"] {
+  color: var(--auth-error);
+}
+.ui-date-calendar {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 14px;
+  width: min(300px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  border: 1px solid var(--date-border);
+  border-radius: 14px;
+  background: var(--date-surface);
+  color: var(--date-ink);
+  box-shadow: var(--popover-shadow);
+  z-index: 20;
+}
+.ui-date-calendar::backdrop {
+  background: transparent;
+}
+.ui-date-calendar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ui-date-calendar-heading strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ui-date-calendar-heading button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--secondary);
+}
+.ui-date-weekdays,
+.ui-date-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.ui-date-weekdays span {
+  padding-block: 5px 9px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.ui-date-week {
+  margin-bottom: 3px;
+}
+.ui-date-week [role="gridcell"] {
+  min-width: 0;
+  min-height: 32px;
+}
+.ui-date-week button {
+  width: 100%;
+  height: 32px;
+  border-radius: 7px;
+  font-size: 12px;
+  border: 1px solid transparent;
+}
+.ui-date-calendar button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.ui-date-week button[data-today="true"] {
+  border-color: var(--accent-border);
+  color: var(--date-accent);
+}
+.ui-date-week [aria-selected="true"] button {
+  background: var(--date-accent);
+  color: var(--accent-foreground);
+  font-weight: 600;
+}
+.ui-date-week [aria-selected="true"] button:hover {
+  background: var(--accent-hover);
+}
+.ui-date-calendar button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.ui-date-calendar button:focus-visible {
+  outline: 2px solid var(--date-accent);
+  outline-offset: 1px;
+}
+.ui-date-calendar-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.ui-date-calendar-footer button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--date-accent);
+}
+.ui-date-calendar-footer button:last-child {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.task-date-property {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 15px;
+  align-items: center;
+  min-height: 28px;
+  font-size: 11px;
+}
+.task-date-property > span {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: var(--muted);
+}
+.auth-shell .ui-date-field {
+  --date-surface: var(--auth-input);
+  --date-ink: var(--auth-ink);
+  --date-border: var(--auth-border);
+  --date-accent: var(--auth-accent);
+}
+@media (pointer: coarse) {
+  .ui-date-field .ui-date-control input[type="date"] {
+    min-height: 42px;
+    font-size: 16px;
+  }
+  .ui-date-week button {
+    height: 36px;
+  }
+  .ui-date-trigger {
+    height: 34px;
+    width: 34px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-date-field .ui-date-control input {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .ui-date-week [aria-selected="true"] button {
+    background: Highlight;
+    color: HighlightText;
+  }
+}

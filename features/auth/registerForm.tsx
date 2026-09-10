@@ -12,6 +12,7 @@ import {
 } from "@/lib/schemas/auth.schema";
 import { SocialButtons } from "./socialButtons";
 import { PasswordStrengthMeter } from "./passwordStrengthMeter";
+import { useTranslation } from "react-i18next";
 
 export function RegisterForm({
   onSwitchToLogin,
@@ -20,6 +21,7 @@ export function RegisterForm({
   onSwitchToLogin: () => void;
   onTerms: () => void;
 }) {
+  const { t } = useTranslation();
   const [notice, setNotice] = useState("");
   const {
     register,
@@ -42,39 +44,35 @@ export function RegisterForm({
     <div className="space-y-5">
       <header>
         <h1 className="text-[30px] font-semibold tracking-tight sm:text-[34px]">
-          Make room for more.
+          {t("auth.fresh")}
         </h1>
-        <p className="mt-2 text-sm text-muted">
-          A fresh start for you and your team.
-        </p>
+        <p className="mt-2 text-sm text-muted">{t("auth.start")}</p>
       </header>
       <SocialButtons disabled={isSubmitting} />
       <div className="auth-divider flex items-center gap-4 text-xs text-muted">
         <span />
-        or sign up with email
+        {t("auth.signUpEmail")}
         <span />
       </div>
       <form
         noValidate
         className="space-y-4"
         onSubmit={handleSubmit(() =>
-          setNotice(
-            "Your details pass validation. Account creation is not connected in this preview; no account has been created.",
-          ),
+          setNotice(t("auth.registerPreviewNotice")),
         )}
       >
         <Input
-          label="Full name"
-          placeholder="Alex Morgan"
+          label={t("auth.fullName")}
+          placeholder={t("auth.namePlaceholder")}
           autoComplete="name"
           icon={<UserRound size={17} />}
           error={errors.fullName?.message}
           {...register("fullName")}
         />
         <Input
-          label="Email address"
+          label={t("auth.email")}
           type="email"
-          placeholder="you@company.com"
+          placeholder={t("auth.emailPlaceholder")}
           autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
@@ -84,8 +82,8 @@ export function RegisterForm({
         />
         <div>
           <Input
-            label="Password"
-            placeholder="Create a password"
+            label={t("auth.password")}
+            placeholder={t("auth.createPasswordPlaceholder")}
             autoComplete="new-password"
             passwordToggle
             icon={<LockKeyhole size={17} />}
@@ -95,8 +93,8 @@ export function RegisterForm({
           <PasswordStrengthMeter value={password} />
         </div>
         <Input
-          label="Confirm password"
-          placeholder="Re-enter your password"
+          label={t("auth.confirm")}
+          placeholder={t("auth.confirmPasswordPlaceholder")}
           autoComplete="new-password"
           passwordToggle
           icon={<LockKeyhole size={17} />}
@@ -105,7 +103,7 @@ export function RegisterForm({
         />
         <div className="flex flex-wrap items-start gap-x-1.5 gap-y-1">
           <Checkbox
-            label="I agree to the"
+            label={t("auth.agreeTo")}
             error={errors.acceptTerms?.message}
             {...register("acceptTerms")}
           />
@@ -114,7 +112,7 @@ export function RegisterForm({
             className="auth-text-link text-xs leading-5"
             onClick={onTerms}
           >
-            Terms &amp; Conditions
+            {t("auth.terms")}
           </button>
         </div>
         {notice && (
@@ -128,7 +126,7 @@ export function RegisterForm({
           className="auth-submit group"
           isLoading={isSubmitting}
         >
-          Create Account{" "}
+          {t("auth.create")}{" "}
           <ArrowRight
             size={16}
             className="transition-transform duration-300 group-hover:translate-x-1"
@@ -136,12 +134,12 @@ export function RegisterForm({
         </Button>
       </form>
       <p className="text-center text-xs text-muted">
-        Already part of Orbit?{" "}
+        {t("auth.already")}{" "}
         <button
           className="auth-text-link font-medium"
           onClick={onSwitchToLogin}
         >
-          Sign in
+          {t("auth.signIn")}
         </button>
       </p>
     </div>

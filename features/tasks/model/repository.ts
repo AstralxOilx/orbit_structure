@@ -1,5 +1,7 @@
 import { INITIAL_TASKS } from "../../workspace/data";
 import { isTask, type Task, type TaskStatus } from "../domain/task";
+import { isScopeDeleted } from "../../workspace/deletions";
+import { appendActivity } from "../../workspace/activity";
 
 const PREFIX = "orbit.workspace.task.v1.";
 type Listener = () => void;
@@ -9,7 +11,18 @@ export type SaveState = {
 };
 
 /** Local-first adapter. Replace this boundary with the revisioned command API. */
-export function createTaskRepository(initial: readonly Task[] = INITIAL_TASKS) {
+export function createTaskRepository(
+  initial: readonly Task[] = INITIAL_TASKS,
+  workspaceId = "studio",
+) {
+  const storagePrefix =
+    workspaceId === "studio"
+      ? PREFIX
+      : `orbit.workspace.${workspaceId}.task.v1.`;
+  const channelName =
+    workspaceId === "studio"
+      ? "orbit.workspace.tasks.v1"
+      : `orbit.workspace.${workspaceId}.tasks.v1`;
   const records = new Map(initial.map((task) => [task.id, task]));
   const listeners = new Set<Listener>();
   const entityListeners = new Map<string, Set<Listener>>();
@@ -45,13 +58,34 @@ export function createTaskRepository(initial: readonly Task[] = INITIAL_TASKS) {
     publish(incoming.id);
   };
   const commit = (next: Task, previous?: Task) => {
+    try {
+      if (isScopeDeleted(workspaceId, next.projectId)) {
+        status({
+          status: "error",
+          message:
+            "This workspace or project was deleted. Changes were not saved.",
+        });
+        return;
+      }
+    } catch {
+      status({
+        status: "error",
+        message: "Browser storage is unavailable. Changes cannot be saved.",
+      });
+      return;
+    }
     records.set(next.id, next);
     publish(next.id);
     pending++;
     status({ status: "saving", message: "Saving changes…" });
     queueMicrotask(() => {
       try {
-        localStorage.setItem(PREFIX + next.id, JSON.stringify(next));
+        if (isScopeDeleted(workspaceId, next.projectId)) {
+          pending--;
+          if (!pending) status(initialStatus);
+          return;
+        }
+        localStorage.setItem(storagePrefix + next.id, JSON.stringify(next));
         channel?.postMessage(next);
         pending--;
         if (!pending) status(initialStatus);
@@ -106,33 +140,129 @@ export function createTaskRepository(initial: readonly Task[] = INITIAL_TASKS) {
     ) {
       const previous = records.get(id);
       if (!previous || previous.deleted) return;
+      const updatedAt = Math.max(Date.now(), previous.updatedAt + 1);
+      const statusHistory =
+        patch.status && patch.status !== previous.status
+          ? [
+              ...(previous.statusHistory ?? []),
+              { from: previous.status, to: patch.status, at: updatedAt },
+            ]
+          : previous.statusHistory;
       commit(
         {
           ...previous,
           ...patch,
+          statusHistory,
+          updatedAt,
+          actor,
+        },
+        previous,
+      );
+      appendActivity(workspaceId, {
+        actorId: "alex",
+        action: patch.deleted
+          ? "deleted"
+          : patch.status !== previous.status
+            ? "moved"
+            : "updated",
+        entity: "task",
+        entityId: id,
+        entityName: previous.title,
+        detail:
+          patch.status !== previous.status
+            ? `${previous.status} → ${patch.status}`
+            : undefined,
+      });
+    },
+    restore(id: string) {
+      const previous = records.get(id);
+      if (!previous || !previous.deleted) return;
+      commit(
+        {
+          ...previous,
+          deleted: false,
           updatedAt: Math.max(Date.now(), previous.updatedAt + 1),
           actor,
         },
         previous,
       );
+      appendActivity(workspaceId, {
+        actorId: "alex",
+        action: "updated",
+        entity: "task",
+        entityId: id,
+        entityName: previous.title,
+        detail: "Restored after deletion",
+      });
     },
     create(task: Omit<Task, "id" | "actor" | "updatedAt">) {
       const id = `ORB-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
-      commit({ ...task, id, actor, updatedAt: Date.now() });
+      const updatedAt = Date.now();
+      commit({
+        ...task,
+        id,
+        actor,
+        updatedAt,
+        statusHistory: [{ from: null, to: task.status, at: updatedAt }],
+      });
+      appendActivity(workspaceId, {
+        actorId: "alex",
+        action: "created",
+        entity: "task",
+        entityId: id,
+        entityName: task.title,
+      });
       return id;
+    },
+    setDependencies(id: string, dependencyIds: string[]): string | null {
+      const task = records.get(id);
+      if (!task || task.deleted) return "This task is no longer available.";
+      const unique = [...new Set(dependencyIds)];
+      // Always allow removing links, including links to deleted tasks or cycles
+      // received from another tab. Adding links validates the complete graph.
+      if (
+        unique.every((dependencyId) => task.dependsOn?.includes(dependencyId))
+      ) {
+        repository.update(id, { dependsOn: unique });
+        return null;
+      }
+      for (const dependencyId of unique) {
+        const dependency = records.get(dependencyId);
+        if (
+          !dependency ||
+          dependency.deleted ||
+          dependency.projectId !== task.projectId
+        )
+          return "Choose an available task in this project.";
+        const pending = [dependencyId];
+        const visited = new Set<string>();
+        while (pending.length) {
+          const current = pending.pop()!;
+          if (current === id)
+            return "This link would create a circular dependency.";
+          if (visited.has(current)) continue;
+          visited.add(current);
+          const record = records.get(current);
+          if (record && !record.deleted)
+            pending.push(...(record.dependsOn ?? []));
+        }
+      }
+      repository.update(id, { dependsOn: unique });
+      return null;
     },
     move(
       id: string,
       toStatus: TaskStatus,
       anchorId?: string,
       placement: "before" | "after" = "before",
+      scope: "project" | "workspace" = "project",
     ) {
       const current = records.get(id);
       if (!current || current.deleted || anchorId === id) return;
       const siblings = snapshot
         .filter(
           (task) =>
-            task.projectId === current.projectId &&
+            (scope === "workspace" || task.projectId === current.projectId) &&
             task.status === toStatus &&
             task.id !== id,
         )
@@ -153,7 +283,7 @@ export function createTaskRepository(initial: readonly Task[] = INITIAL_TASKS) {
         const changed: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (!key?.startsWith(PREFIX)) continue;
+          if (!key?.startsWith(storagePrefix)) continue;
           try {
             const task: unknown = JSON.parse(
               localStorage.getItem(key) ?? "null",
@@ -182,12 +312,12 @@ export function createTaskRepository(initial: readonly Task[] = INITIAL_TASKS) {
         });
       }
       if ("BroadcastChannel" in window) {
-        channel = new BroadcastChannel("orbit.workspace.tasks.v1");
+        channel = new BroadcastChannel(channelName);
         channel.onmessage = (event: MessageEvent<unknown>) =>
           receive(event.data);
       }
       const onStorage = (event: StorageEvent) => {
-        if (event.key?.startsWith(PREFIX) && event.newValue) {
+        if (event.key?.startsWith(storagePrefix) && event.newValue) {
           try {
             receive(JSON.parse(event.newValue));
           } catch {

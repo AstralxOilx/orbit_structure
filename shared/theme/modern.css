@@ -1,0 +1,47 @@
+/* Shared modern surface language for the workspace UI. */
+.workspace {
+  background: var(--canvas);
+}
+.workspace .topbar {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  border-bottom-color: var(--border);
+  backdrop-filter: blur(16px);
+}
+.workspace .page-heading {
+  padding-top: 34px;
+}
+.workspace .page-heading h1 {
+  letter-spacing: -0.035em;
+}
+.workspace .button {
+  border-radius: 10px;
+}
+.workspace .task-card,
+.workspace .list-row,
+.workspace .timeline-row,
+.workspace .member-card,
+.workspace .inbox-item {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #29204a08;
+}
+.workspace .task-card:hover,
+.workspace .list-row:hover,
+.workspace .timeline-row:hover,
+.workspace .member-card:hover,
+.workspace .inbox-item:hover {
+  box-shadow: 0 10px 24px #29204a12;
+}
+.workspace .dialog {
+  border-radius: 17px;
+  box-shadow: 0 25px 90px #1b132c2e;
+}
+[data-theme="dark"] .workspace .topbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+[data-theme="dark"] .workspace .task-card,
+[data-theme="dark"] .workspace .list-row,
+[data-theme="dark"] .workspace .timeline-row,
+[data-theme="dark"] .workspace .member-card,
+[data-theme="dark"] .workspace .inbox-item {
+  box-shadow: 0 3px 14px #00000026;
+}

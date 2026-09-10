@@ -1,9 +1,20 @@
 export const STATUSES = ["backlog", "progress", "review", "done"] as const;
 export type TaskStatus = (typeof STATUSES)[number];
+export interface StatusTransition {
+  from: TaskStatus | null;
+  to: TaskStatus;
+  at: number;
+}
 export type Priority = "urgent" | "high" | "normal" | "low";
 export type ViewMode = "board" | "list" | "timeline";
 export type WorkspacePage =
-  "project" | "overview" | "my-tasks" | "teams" | "inbox";
+  | "project"
+  | "overview"
+  | "my-tasks"
+  | "teams"
+  | "inbox"
+  | "discussion"
+  | "activity";
 
 export interface Task {
   id: string;
@@ -16,6 +27,9 @@ export interface Task {
   assigneeId: string;
   startOn: string;
   dueOn: string;
+  /** IDs of tasks that must finish before this task starts. */
+  dependsOn?: string[];
+  statusHistory?: StatusTransition[];
   rank: number;
   subtasks: { id: string; title: string; done: boolean }[];
   comments: { id: string; authorId: string; body: string; createdAt: string }[];
@@ -149,6 +163,19 @@ export function isTask(value: unknown): value is Task {
     typeof task.assigneeId === "string" &&
     typeof task.startOn === "string" &&
     typeof task.dueOn === "string" &&
+    (task.statusHistory === undefined ||
+      (Array.isArray(task.statusHistory) &&
+        task.statusHistory.every(
+          (event) =>
+            event &&
+            (event.from === null || STATUSES.includes(event.from)) &&
+            STATUSES.includes(event.to) &&
+            Number.isFinite(event.at) &&
+            event.at >= 0,
+        ))) &&
+    (task.dependsOn === undefined ||
+      (Array.isArray(task.dependsOn) &&
+        task.dependsOn.every((id) => typeof id === "string"))) &&
     typeof task.rank === "number" &&
     Number.isFinite(task.rank) &&
     Array.isArray(task.subtasks) &&

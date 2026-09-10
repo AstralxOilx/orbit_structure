@@ -10,20 +10,38 @@ import {
   LayoutDashboard,
   LayoutGrid,
   ListTodo,
+  MessageCircle,
+  History,
   PanelLeftClose,
   Plus,
+  Settings,
   UsersRound,
   Orbit,
 } from "lucide-react";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
-import { IconButton, OrbitMark } from "@/shared/ui";
-import { MEMBERS, PROJECTS } from "./data";
+import { IconButton, OrbitMark, Tooltip } from "@/shared/ui";
+import { useMembers } from "@/features/workspace/catalog";
+import { useCatalog } from "./catalog";
+import { ProjectIcon } from "./ui/project-icon";
+import { WorkspaceLogo } from "./ui/workspace-logo";
 import { ThemeToggle } from "@/shared/theme/theme-toggle";
 import { useWorkspaceUI } from "./ui-store";
 import type { WorkspacePage } from "../tasks/domain/task";
+import { useTranslation } from "react-i18next";
 
 export type WorkspaceModal =
-  "search" | "share" | "display" | "help" | "settings" | "member" | null;
+  | "search"
+  | "share"
+  | "display"
+  | "help"
+  | "settings"
+  | "backup"
+  | "project-settings"
+  | "member"
+  | "profile-settings"
+  | "workspaces"
+  | "new-project"
+  | null;
 
 export function Sidebar({
   page,
@@ -42,7 +60,11 @@ export function Sidebar({
   onModal: (modal: WorkspaceModal) => void;
   onMember: (id: string) => void;
 }) {
+  const MEMBERS = useMembers();
+  const { t } = useTranslation();
+  const currentMember = MEMBERS.find((member) => member.id === "alex");
   const collapsed = useWorkspaceUI((state) => state.collapsed);
+  const { projects: PROJECTS, workspace } = useCatalog();
   const mobileNav = useWorkspaceUI((state) => state.mobileNav);
   const sidebarRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -98,13 +120,13 @@ export function Sidebar({
       ref={sidebarRef}
       id="workspace-sidebar"
       className="sidebar"
-      aria-label="Workspace navigation"
+      aria-label={t("workspace.workspaceNavigation")}
     >
       <div className="brand-row">
         <button
           className="brand"
           onClick={() => navigate("overview")}
-          aria-label="Orbit overview"
+          aria-label={t("brand.overview")}
         >
           <Orbit size={32} strokeWidth={1.6} />
           <span>
@@ -112,7 +134,7 @@ export function Sidebar({
           </span>
         </button>
         <IconButton
-          label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          label={collapsed ? t("actions.expand") : t("actions.collapse")}
           aria-expanded={!collapsed}
           aria-controls="workspace-sidebar"
           className="collapse-control"
@@ -122,7 +144,7 @@ export function Sidebar({
         </IconButton>
         <IconButton
           className="sidebar-mobile-close"
-          label="Close navigation"
+          label={t("actions.close")}
           onClick={() => useWorkspaceUI.getState().setMobileNav(false)}
         >
           <X size={18} />
@@ -131,88 +153,127 @@ export function Sidebar({
       <div className="sidebar-scroll">
         <button
           className="workspace-switcher"
-          onClick={() => onModal("settings")}
+          onClick={() => onModal("workspaces")}
         >
-          <span className="workspace-logo">
+          <WorkspaceLogo workspace={workspace} />
+          <span className="legacy-workspace-logo">
             s<span>✳</span>
           </span>
           <span className="workspace-switch-copy">
-            <strong>Studio workspace</strong>
+            <strong>{workspace.name}</strong>
             <small>
-              Pro plan <span>✦</span>
+              {t("workspace.switchOrJoin")} <span>✦</span>
             </small>
           </span>
           <ChevronsUpDown size={14} />
         </button>
-        <div className="sidebar-group-label">WORKSPACE</div>
+        <button
+          className="workspace-settings-link"
+          onClick={() => onModal("settings")}
+        >
+          <Settings size={15} />
+          <span>{t("actions.settings")}</span>
+        </button>
+        <button
+          className="workspace-settings-link"
+          onClick={() => onModal("backup")}
+        >
+          <ArrowUpRight size={15} />
+          <span>{t("actions.backup")}</span>
+        </button>
+        <div className="sidebar-group-label">{t("nav.workspace")}</div>
         <nav className="primary-nav">
           {[
             {
               key: "overview",
-              label: "Overview",
+              label: t("nav.overview"),
               icon: LayoutDashboard,
               count: 0,
             },
             {
               key: "my-tasks",
-              label: "My tasks",
+              label: t("nav.tasks"),
               icon: ListTodo,
               count: myCount,
             },
-            { key: "inbox", label: "Inbox", icon: Inbox, count: inboxCount },
-            { key: "teams", label: "Team", icon: UsersRound, count: 0 },
+            {
+              key: "inbox",
+              label: t("nav.inbox"),
+              icon: Inbox,
+              count: inboxCount,
+            },
+            {
+              key: "discussion",
+              label: t("nav.discussion"),
+              icon: MessageCircle,
+              count: 0,
+            },
+            {
+              key: "activity",
+              label: t("nav.activity"),
+              icon: History,
+              count: 0,
+            },
+            { key: "teams", label: t("nav.team"), icon: UsersRound, count: 0 },
           ].map((item) => (
-            <button
-              key={item.key}
-              className={`nav-item ${page === item.key ? "active" : ""}`}
-              onClick={() => navigate(item.key as WorkspacePage)}
-              title={item.label}
-              aria-label={item.label}
-              aria-current={page === item.key ? "page" : undefined}
-            >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-              {item.count > 0 && (
-                <b
-                  className={`nav-count ${item.key === "inbox" ? "purple-count" : ""}`}
-                >
-                  {item.count}
-                </b>
-              )}
-            </button>
+            <Tooltip key={item.key} content={item.label}>
+              <button
+                key={item.key}
+                className={`nav-item ${page === item.key ? "active" : ""}`}
+                onClick={() => navigate(item.key as WorkspacePage)}
+                aria-label={item.label}
+                aria-current={page === item.key ? "page" : undefined}
+              >
+                <item.icon size={18} />
+                <span>{item.label}</span>
+                {item.count > 0 && (
+                  <b
+                    className={`nav-count ${item.key === "inbox" ? "purple-count" : ""}`}
+                  >
+                    {item.count}
+                  </b>
+                )}
+              </button>
+            </Tooltip>
           ))}
         </nav>
         <div className="sidebar-divider" />
         <div className="sidebar-group-label project-label">
-          <span>PROJECTS</span>
+          <span>{t("workspace.projectsLabel")}</span>
           <button
-            aria-label="Browse projects"
-            title="Browse projects"
-            onClick={() => navigate("overview")}
+            aria-label={t("workspace.createProject")}
+            onClick={() => onModal("new-project")}
           >
-            <Plus size={15} />
+            <Tooltip content={t("workspace.createProject")}>
+              <Plus size={15} />
+            </Tooltip>
           </button>
         </div>
         <nav className="project-nav">
           {PROJECTS.map((project) => (
-            <button
-              key={project.id}
-              className={`nav-item project-nav-item ${page === "project" && projectId === project.id ? "active" : ""}`}
-              onClick={() => navigate("project", project.id)}
-              title={project.name}
-              aria-label={project.name}
-              aria-current={
-                page === "project" && projectId === project.id
-                  ? "page"
-                  : undefined
-              }
-            >
-              <span className={`project-dot dot-${project.color}`} />
-              <span>{project.name}</span>
-              {page === "project" && projectId === project.id && (
-                <span className="active-project-dot" />
-              )}
-            </button>
+            <Tooltip key={project.id} content={project.name}>
+              <button
+                key={project.id}
+                className={`nav-item project-nav-item ${page === "project" && projectId === project.id ? "active" : ""}`}
+                onClick={() => navigate("project", project.id)}
+                aria-label={project.name}
+                aria-current={
+                  page === "project" && projectId === project.id
+                    ? "page"
+                    : undefined
+                }
+              >
+                <span
+                  className={`project-nav-icon project-icon-${project.color}`}
+                >
+                  <ProjectIcon project={project} size={14} />
+                </span>
+                <span>{project.name}</span>
+                {page === "project" && projectId === project.id && (
+                  <span className="active-project-dot" />
+                )}
+              </button>
+            </Tooltip>
           ))}
         </nav>
         <button
@@ -220,17 +281,15 @@ export function Sidebar({
           onClick={() => navigate("overview")}
         >
           <LayoutGrid size={14} />
-          <span>All projects</span>
+          <span>{t("workspace.allProjectsLabel")}</span>
           <ArrowUpRight size={13} />
         </button>
-        <div className="sidebar-group-label team-label">YOUR TEAM</div>
+        <div className="sidebar-group-label team-label">
+          {t("workspace.yourTeam")}
+        </div>
         <div className="sidebar-team">
           {MEMBERS.slice(1, 4).map((member) => (
-            <button
-              key={member.id}
-              onClick={() => onMember(member.id)}
-              title={member.name}
-            >
+            <button key={member.id} onClick={() => onMember(member.id)}>
               <Avatar id={member.id} size="xs" />
               <span>{member.name}</span>
               <span className="member-role-short">{member.team}</span>
@@ -239,33 +298,34 @@ export function Sidebar({
         </div>
         <div className="workspace-note">
           <span className="note-sparkle">✦</span>
-          <strong>Good work happens together.</strong>
-          <p>A little clarity. A lot of possibility.</p>
+          <strong>{t("workspace.teamTogether")}</strong>
+          <p>{t("workspace.clarityPossibility")}</p>
           <button onClick={() => onModal("share")}>
-            Bring your team along <ArrowUpRight size={14} />
+            {t("workspace.bringTeamAlong")} <ArrowUpRight size={14} />
           </button>
         </div>
       </div>
       <div className="sidebar-bottom">
-        <button
-          className="sidebar-help"
-          onClick={() => onModal("help")}
-          title="Help and shortcuts"
-        >
-          <CircleHelp size={17} />
-          <span>Help & shortcuts</span>
+        <button className="sidebar-help" onClick={() => onModal("help")}>
+          <Tooltip content={t("workspace.helpShortcuts")}>
+            <CircleHelp size={17} />
+          </Tooltip>
+          <span>{t("workspace.helpShortcuts")}</span>
           <kbd>?</kbd>
         </button>
         <div className="profile-row">
           <button
             className="profile-button"
-            onClick={() => onMember("alex")}
-            title="Alex Morgan"
+            onClick={() => onModal("profile-settings")}
           >
             <Avatar id="alex" size="sm" />
             <span>
-              <strong>Alex Morgan</strong>
-              <small>Personal account</small>
+              <strong>
+                {currentMember?.name ?? t("workspace.alexMorgan")}
+              </strong>
+              <small>
+                {currentMember?.team ?? t("workspace.personalAccount")}
+              </small>
             </span>
           </button>
           <ThemeToggle />

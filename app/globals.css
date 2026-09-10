@@ -1,10 +1,23 @@
 @import "tailwindcss";
 @import "../shared/theme/tokens.css";
+@import "../shared/theme/modern.css";
 @import "../shared/theme/auth-tokens.css";
 @import "../shared/ui/styles.css";
 @import "../shared/workspace.css";
 @import "../features/workspace/sidebar.css";
+@import "../shared/ui/select.css";
+@import "../features/tasks/ui/timeline.css";
+@import "../features/analytics/flow-charts.css";
+@import "../features/workspace/catalog.css";
+@import "../shared/ui/date-input.css";
 @import "../shared/theme/scrollbars.css";
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
@@ -19,7 +32,7 @@
   --color-nebula-2: var(--nebula-2);
   --color-nebula-3: var(--nebula-3);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-thai);
   --font-mono: var(--font-geist-mono);
 
   --animate-twinkle: twinkle 4s ease-in-out infinite;
