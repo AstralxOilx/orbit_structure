@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,7 +16,9 @@
 
 # next.js
 /.next/
+**/.next/
 /out/
+**/out/
 
 # production
 /build
@@ -42,6 +45,9 @@ next-env.d.ts
 
 # Generated browser test reports
 /test-results/
+**/test-results/
 /playwright-report/
+**/playwright-report/
 /artifacts/
+**/artifacts/
 !.env.example
