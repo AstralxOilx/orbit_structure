@@ -12,25 +12,25 @@ The app-wide theme and reusable UI components are documented in [Shared UI and t
 
 | Light | Dark |
 | --- | --- |
-| ![Orbit current light workspace](artifacts/orbit-overview-light-current.png) | ![Orbit current dark workspace](artifacts/orbit-overview-dark-current.png) |
+| ![Orbit current light workspace](docs/images/orbit-overview-light.png) | ![Orbit current dark workspace](docs/images/orbit-overview-dark.png) |
 
 ### Task detail
 
 | Light | Dark |
 | --- | --- |
-| ![Orbit current light task detail](artifacts/orbit-task-light-current.png) | ![Orbit current dark task detail](artifacts/orbit-task-dark-current.png) |
+| ![Orbit current light task detail](docs/images/orbit-task-light.png) | ![Orbit current dark task detail](docs/images/orbit-task-dark.png) |
 
 ### Mobile workspace
 
 | Light | Dark |
 | --- | --- |
-| ![Orbit current light mobile workspace](artifacts/orbit-mobile-light-current.png) | ![Orbit current dark mobile workspace](artifacts/orbit-mobile-dark-current.png) |
+| ![Orbit current light mobile workspace](docs/images/orbit-mobile-light.png) | ![Orbit current dark mobile workspace](docs/images/orbit-mobile-dark.png) |
 
 ### Sign in
 
 | Light | Dark |
 | --- | --- |
-| ![Orbit current light sign in](artifacts/orbit-auth-light-current.png) | ![Orbit current dark sign in](artifacts/orbit-auth-dark-current.png) |
+| ![Orbit current light sign in](docs/images/orbit-auth-light.png) | ![Orbit current dark sign in](docs/images/orbit-auth-dark.png) |
 
 ### Sign up
 
