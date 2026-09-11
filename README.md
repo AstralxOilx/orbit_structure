@@ -40,13 +40,14 @@ The app-wide theme and reusable UI components are documented in [Shared UI and t
 
 The dark account screen includes responsive split-screen branding, Login / Sign Up tabs with Framer Motion, keyboard navigation, password visibility, registration strength feedback, and React Hook Form / Zod validation. Social sign-in, recovery and registration currently explain their preview status; no credentials are logged, persisted or submitted, and no account or verification email is created. Connect an authentication service before enabling real account access. Workspace navigation remains available through the explicit demo link.
 
-Run `npx playwright test tests/e2e/auth.spec.ts` with the dev server running to verify account interactions, accessibility and the sidebar width transition. Animations honor reduced-motion preferences. The tab indicator uses [Motion shared layout animation](https://motion.dev/docs/react-layout-animations), and form panels use [AnimatePresence](https://motion.dev/docs/react-animate-presence).
+Run `npx playwright test tests/e2e/auth.spec.ts` from `frontend/` with the dev server running to verify account interactions, accessibility and the sidebar width transition. Animations honor reduced-motion preferences. The tab indicator uses [Motion shared layout animation](https://motion.dev/docs/react-layout-animations), and form panels use [AnimatePresence](https://motion.dev/docs/react-animate-presence).
 
 ## Run
 
 Use Node.js 22.18+ (Node 25 was used for validation).
 
 ```sh
+cd frontend
 npm install
 npm run dev
 ```
@@ -54,6 +55,7 @@ npm run dev
 Open [localhost:3000](http://localhost:3000). The workspace starts with sample projects. Edits persist in this browser; open a second tab on the same origin to try live task and description synchronization.
 
 ```sh
+cd frontend
 npm run build
 npm start
 ```
@@ -69,16 +71,18 @@ npm test
 npm run test:e2e
 ```
 
-Start the app before running browser tests. Playwright defaults to installed Microsoft Edge. Set `PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome and `PLAYWRIGHT_BASE_URL` to test another port or a production server. Browser screenshots are written to `artifacts/`; failure traces go to `test-results/`.
+Start the app before running browser tests. Playwright defaults to installed Microsoft Edge. Set `PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome and `PLAYWRIGHT_BASE_URL` to test another port or a production server. Browser screenshots are written to `frontend/artifacts/`; failure traces go to `frontend/test-results/`.
 
 ## Architecture and scope
 
 - [Frontend architecture and UI/UX specification](docs/unified-workspace-frontend-spec.md)
 - [Implementation boundaries, features and backend integration](docs/frontend-implementation.md)
+- [App and database flow (Thai)](docs/app-and-database-flow.th.md)
+- [Repository structure (Thai)](docs/repository-structure.th.md)
 - [Optimistic reconciliation reference](docs/reference/optimistic-task.ts)
 
-The frontend uses React, TypeScript, TanStack Query/Virtual, Zustand, dnd-kit, Recharts and Yjs. Source is organized by feature under `features/`; shared tokens and UI live in `app/globals.css` and `shared/`.
+The frontend uses React, TypeScript, TanStack Query/Virtual, Zustand, dnd-kit, Recharts and Yjs. Source is organized by feature under `frontend/features/`; shared tokens and UI live in `frontend/app/globals.css` and `frontend/shared/`.
 
 The current adapter stores data locally and synchronizes between tabs. Authentication, remote task APIs, invitations, remote presence and historical analytics need backend integration. This is not a hosted multi-user service.
 
-For an existing compatible Yjs service, copy `.env.example` to `.env.local`, configure `NEXT_PUBLIC_YJS_WEBSOCKET_URL`, and restart the app. This connects description documents only; the service must provide authorization, persistence and document initialization. Leave it unset for the local demo.
+For an existing compatible Yjs service, copy `frontend/.env.example` to `frontend/.env.local`, configure `NEXT_PUBLIC_YJS_WEBSOCKET_URL`, and restart the app. This connects description documents only; the service must provide authorization, persistence and document initialization. Leave it unset for the local demo.
