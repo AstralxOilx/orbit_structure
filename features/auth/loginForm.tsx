@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
@@ -13,12 +12,13 @@ import { useTranslation } from "react-i18next";
 export function LoginForm({
   onSwitchToRegister,
   onForgotPassword,
+  onLoginSuccess,
 }: {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
+  onLoginSuccess: () => void;
 }) {
   const { t } = useTranslation();
-  const [notice, setNotice] = useState("");
   const {
     register,
     handleSubmit,
@@ -44,7 +44,7 @@ export function LoginForm({
       </div>
       <form
         noValidate
-        onSubmit={handleSubmit(() => setNotice(t("auth.signInPreviewNotice")))}
+        onSubmit={handleSubmit(() => onLoginSuccess())}
         className="space-y-5"
       >
         <Input
@@ -76,11 +76,6 @@ export function LoginForm({
             {t("auth.forgot")}
           </button>
         </div>
-        {notice && (
-          <p className="auth-notice" role="status">
-            {notice}
-          </p>
-        )}
         <Button
           type="submit"
           size="lg"

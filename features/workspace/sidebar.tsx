@@ -16,10 +16,9 @@ import {
   Plus,
   Settings,
   UsersRound,
-  Orbit,
 } from "lucide-react";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
-import { IconButton, OrbitMark, Tooltip } from "@/shared/ui";
+import { IconButton, OrbitLogo, Tooltip } from "@/shared/ui";
 import { useMembers } from "@/features/workspace/catalog";
 import { useCatalog } from "./catalog";
 import { ProjectIcon } from "./ui/project-icon";
@@ -128,7 +127,7 @@ export function Sidebar({
           onClick={() => navigate("overview")}
           aria-label={t("brand.overview")}
         >
-          <Orbit size={32} strokeWidth={1.6} />
+          <OrbitLogo size={34} />
           <span>
             orbit<span className="brand-period">.</span>
           </span>

@@ -1,0 +1,12 @@
+{
+  "version": "2026.09.11",
+  "manifestHash": "orbit-assets-2026.09.11",
+  "assets": [
+    {
+      "path": "orbit-logo.svg",
+      "url": "/orbit-logo.svg",
+      "bytes": 998,
+      "sha256": "97bd2e64dea7d438d904fc57689cb3ebb6c46a82c55cdd0f70b8d8eb082a6687"
+    }
+  ]
+}

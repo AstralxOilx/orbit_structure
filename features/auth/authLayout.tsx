@@ -4,23 +4,48 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/shared/theme/theme-toggle";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Check, Layers3, Sparkles, Orbit } from "lucide-react";
+import { ArrowUpRight, Check, Layers3, Sparkles } from "lucide-react";
 import type { AuthInfo } from "./auth-info";
-import { LanguageSwitcher } from "@/shared/ui";
+import { LanguageSwitcher, OrbitLogo } from "@/shared/ui";
 import { useTranslation } from "react-i18next";
+import { AssetLoadingScreen } from "@/features/assets/asset-loading-screen";
+import type { AssetProgress } from "@/features/assets/asset-manager";
 
 export function AuthLayout({
   children,
   activeTab,
   onTabChange,
   onInfo,
+  assetProgress,
+  onPauseAssets,
+  onResumeAssets,
+  onRetryAssets,
+  onCancelAssets,
 }: {
   children: ReactNode;
   activeTab: "login" | "register";
   onTabChange: (tab: "login" | "register") => void;
   onInfo: (info: AuthInfo) => void;
+  assetProgress: AssetProgress | null;
+  onPauseAssets: () => void;
+  onResumeAssets: () => void;
+  onRetryAssets: () => void;
+  onCancelAssets: () => void;
 }) {
   const { t } = useTranslation();
+
+  if (assetProgress && assetProgress.state !== "completed") {
+    return (
+      <AssetLoadingScreen
+        progress={assetProgress}
+        onPause={onPauseAssets}
+        onResume={onResumeAssets}
+        onRetry={onRetryAssets}
+        onCancel={onCancelAssets}
+      />
+    );
+  }
+
   return (
     <div className="auth-shell min-h-dvh lg:grid lg:grid-cols-[1.05fr_1fr]">
       <aside
@@ -52,7 +77,7 @@ export function AuthLayout({
             <div className="auth-orbit-ring ring-two" />
             <div className="auth-orbit-ring ring-three" />
             <div className="auth-orbit-core">
-              <Orbit size={58} strokeWidth={1} />
+              <OrbitLogo size={58} />
             </div>
             <span className="auth-satellite auth-satellite-one">✦</span>
             <motion.div
@@ -117,7 +142,7 @@ export function AuthLayout({
             aria-label={t("auth.demoWorkspace")}
             className="auth-brand flex items-center gap-2.5 text-2xl font-semibold"
           >
-            <Orbit size={32} strokeWidth={1.6} />
+            <OrbitLogo size={36} />
             orbit.
           </Link>
           <div className="ml-auto flex items-center gap-3">

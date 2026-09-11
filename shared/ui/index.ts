@@ -1,4 +1,5 @@
 export { OrbitMark } from "./orbit-mark";
+export { OrbitLogo } from "./orbit-logo";
 export { IconButton } from "./icon-button";
 export { Dialog } from "./dialog";
 export { EmptyState } from "./empty-state";

@@ -1,8 +1,16 @@
 .orbit-mark {
   display: inline-flex;
-  color: var(--accent);
   width: 33px;
   height: 33px;
+}
+.orbit-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.orbit-logo svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 .orbit-mark svg {
   width: 100%;
