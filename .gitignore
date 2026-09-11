@@ -23,6 +23,20 @@
 # production
 /build
 
+# Go build output and local caches
+**/*.exe
+**/*.test
+**/*.out
+**/bin/
+**/.gocache/
+
+# Local runtime data and logs
+*.log
+/tmp/
+**/tmp/
+postgres-data/
+pgadmin-data/
+
 # misc
 .DS_Store
 *.pem
