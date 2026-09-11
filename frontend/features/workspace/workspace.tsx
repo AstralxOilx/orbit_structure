@@ -121,11 +121,19 @@ function Workspace() {
   const [density, setDensity] = useState("comfortable");
   const [preferences, setPreferences] =
     useState<WorkspacePreferences>(DEFAULT_PREFERENCES);
-  const [selectedMember, setSelectedMember] = useState("alex");
+  const currentMember = MEMBERS.find((member) => member.role === "owner");
+  const [selectedMember, setSelectedMember] = useState(currentMember?.id ?? "");
   const [inboxRead, setInboxRead] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const openedDrawer = useRef(false);
   const { projects, workspace } = useCatalog();
+  useEffect(() => {
+    if (
+      currentMember &&
+      !MEMBERS.some((member) => member.id === selectedMember)
+    )
+      setSelectedMember(currentMember.id);
+  }, [currentMember, MEMBERS, selectedMember]);
   const projectId = projects.some(
     (project) => project.id === params.get("project"),
   )
@@ -291,10 +299,10 @@ function Workspace() {
     () =>
       tasks.filter((task) =>
         page === "my-tasks"
-          ? task.assigneeId === "alex"
+          ? task.assigneeId === currentMember?.id
           : task.projectId === projectId,
       ),
-    [tasks, projectId, page],
+    [tasks, projectId, page, currentMember?.id],
   );
   const { tasks: filteredTasks, pending: filtersPending } = useFilteredTasks(
     projectTasks,
@@ -410,7 +418,8 @@ function Workspace() {
         projectId={projectId}
         myCount={
           tasks.filter(
-            (task) => task.assigneeId === "alex" && task.status !== "done",
+            (task) =>
+              task.assigneeId === currentMember?.id && task.status !== "done",
           ).length
         }
         inboxCount={
@@ -494,10 +503,10 @@ function Workspace() {
             />
             <button
               className="avatar-button topbar-avatar"
-              onClick={() => onMember("alex")}
+              onClick={() => onMember(currentMember?.id ?? "")}
               aria-label={t("workspace.yourProfile")}
             >
-              <Avatar id="alex" size="sm" />
+              <Avatar id={currentMember?.id ?? ""} size="sm" />
             </button>
           </div>
         </header>

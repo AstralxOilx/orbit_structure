@@ -300,7 +300,7 @@ export function TaskToolbar({
           {filters.assigneeId !== "all" && (
             <button onClick={() => setLocation({ assignee: null })}>
               {MEMBERS.find((member) => member.id === filters.assigneeId)
-                ?.name ?? t("workspace.unassigned")}
+                ?.name ?? "—"}
               <X size={11} />
             </button>
           )}

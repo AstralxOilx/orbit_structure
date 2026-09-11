@@ -5,11 +5,145 @@ import (
 	"orbit/backend/internal/application"
 	"time"
 )
-type Repository struct { db *sql.DB }
+
+type Repository struct{ db *sql.DB }
+
 func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
-func (r *Repository) ListWorkspaces() ([]application.Workspace, error) { rows, err := r.db.Query(`SELECT id, workspace_key, name, invite_code, owner_id, created_at FROM workspaces WHERE deleted_at IS NULL ORDER BY created_at, name`); if err != nil{return nil,err}; defer rows.Close(); out:=[]application.Workspace{}; for rows.Next(){var x application.Workspace; if err:=rows.Scan(&x.ID,&x.Key,&x.Name,&x.InviteCode,&x.OwnerID,&x.CreatedAt);err!=nil{return nil,err};out=append(out,x)}; return out,rows.Err() }
-func (r *Repository) CreateWorkspace(i application.CreateWorkspaceInput)(application.Workspace,error){var x application.Workspace; err:=r.db.QueryRow(`INSERT INTO workspaces(workspace_key,name,invite_code,owner_id) VALUES($1,$2,$3,$4) RETURNING id,workspace_key,name,invite_code,owner_id,created_at`,i.Key,i.Name,i.InviteCode,i.OwnerID).Scan(&x.ID,&x.Key,&x.Name,&x.InviteCode,&x.OwnerID,&x.CreatedAt);return x,err}
-func (r *Repository) ListProjects(id string)([]application.Project,error){rows,err:=r.db.Query(`SELECT id,project_key,workspace_id,name,description,color,icon,to_char(due_on,'YYYY-MM-DD') FROM projects WHERE workspace_id=$1 AND deleted_at IS NULL ORDER BY created_at,name`,id);if err!=nil{return nil,err};defer rows.Close();out:=[]application.Project{};for rows.Next(){var x application.Project;var due sql.NullString;if err:=rows.Scan(&x.ID,&x.Key,&x.WorkspaceID,&x.Name,&x.Description,&x.Color,&x.Icon,&due);err!=nil{return nil,err};if due.Valid{x.DueOn=&due.String};out=append(out,x)};return out,rows.Err()}
-func (r *Repository) CreateProject(id string,i application.CreateProjectInput)(application.Project,error){var x application.Project;var due sql.NullString;err:=r.db.QueryRow(`INSERT INTO projects(project_key,workspace_id,name,description,color,icon,due_on) VALUES($1,$2,$3,$4,COALESCE(NULLIF($5,''),'purple'),COALESCE(NULLIF($6,''),'other'),NULLIF($7,'')::date) RETURNING id,project_key,workspace_id,name,description,color,icon,to_char(due_on,'YYYY-MM-DD')`,i.Key,id,i.Name,i.Description,i.Color,i.Icon,i.DueOn).Scan(&x.ID,&x.Key,&x.WorkspaceID,&x.Name,&x.Description,&x.Color,&x.Icon,&due);if due.Valid{x.DueOn=&due.String};return x,err}
-func (r *Repository) ListTasks(id string)([]application.Task,error){rows,err:=r.db.Query(`SELECT id,task_key,project_id,title,description,status,priority,assignee_id,to_char(start_on,'YYYY-MM-DD'),to_char(due_on,'YYYY-MM-DD'),rank::text,revision,updated_at FROM tasks WHERE project_id=$1 AND deleted_at IS NULL ORDER BY rank,title`,id);if err!=nil{return nil,err};defer rows.Close();out:=[]application.Task{};for rows.Next(){var x application.Task;var a,s,d sql.NullString;if err:=rows.Scan(&x.ID,&x.Key,&x.ProjectID,&x.Title,&x.Description,&x.Status,&x.Priority,&a,&s,&d,&x.Rank,&x.Revision,&x.UpdatedAt);err!=nil{return nil,err};if a.Valid{x.AssigneeID=&a.String};if s.Valid{x.StartOn=&s.String};if d.Valid{x.DueOn=&d.String};out=append(out,x)};return out,rows.Err()}
-func (r *Repository) CreateTask(id string,i application.CreateTaskInput)(application.Task,error){var x application.Task;var a,s,d sql.NullString;rank:=i.Rank;if rank==0{rank=float64(time.Now().UnixNano())};err:=r.db.QueryRow(`INSERT INTO tasks(task_key,project_id,title,description,status,priority,assignee_id,start_on,due_on,rank) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,NULLIF($8,'')::date,NULLIF($9,'')::date,$10) RETURNING id,task_key,project_id,title,description,status,priority,assignee_id,to_char(start_on,'YYYY-MM-DD'),to_char(due_on,'YYYY-MM-DD'),rank::text,revision,updated_at`,i.Key,id,i.Title,i.Description,i.Status,i.Priority,i.AssigneeID,i.StartOn,i.DueOn,rank).Scan(&x.ID,&x.Key,&x.ProjectID,&x.Title,&x.Description,&x.Status,&x.Priority,&a,&s,&d,&x.Rank,&x.Revision,&x.UpdatedAt);if a.Valid{x.AssigneeID=&a.String};if s.Valid{x.StartOn=&s.String};if d.Valid{x.DueOn=&d.String};return x,err}
+func (r *Repository) ListWorkspaces(userID string) ([]application.Workspace, error) {
+	rows, err := r.db.Query(`SELECT w.id, w.workspace_key, w.name, w.invite_code, w.owner_id, w.created_at FROM workspaces w JOIN workspace_members wm ON wm.workspace_id=w.id WHERE wm.user_id=$1 AND w.deleted_at IS NULL ORDER BY w.created_at, w.name`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []application.Workspace{}
+	for rows.Next() {
+		var x application.Workspace
+		if err := rows.Scan(&x.ID, &x.Key, &x.Name, &x.InviteCode, &x.OwnerID, &x.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+func (r *Repository) CreateWorkspace(i application.CreateWorkspaceInput) (application.Workspace, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return application.Workspace{}, err
+	}
+	defer tx.Rollback()
+	var x application.Workspace
+	err = tx.QueryRow(`INSERT INTO workspaces(workspace_key,name,invite_code,owner_id) VALUES($1,$2,$3,$4) RETURNING id,workspace_key,name,invite_code,owner_id,created_at`, i.Key, i.Name, i.InviteCode, i.OwnerID).Scan(&x.ID, &x.Key, &x.Name, &x.InviteCode, &x.OwnerID, &x.CreatedAt)
+	if err != nil {
+		return x, err
+	}
+	if _, err = tx.Exec(`INSERT INTO workspace_members(workspace_id,user_id,role) VALUES($1,$2,'owner')`, x.ID, i.OwnerID); err != nil {
+		return x, err
+	}
+	return x, tx.Commit()
+}
+func (r *Repository) JoinWorkspace(code, userID string) (application.Workspace, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return application.Workspace{}, err
+	}
+	defer tx.Rollback()
+	var x application.Workspace
+	err = tx.QueryRow(`SELECT id,workspace_key,name,invite_code,owner_id,created_at FROM workspaces WHERE invite_code=$1 AND deleted_at IS NULL`, code).Scan(&x.ID, &x.Key, &x.Name, &x.InviteCode, &x.OwnerID, &x.CreatedAt)
+	if err != nil {
+		return x, err
+	}
+	if _, err = tx.Exec(`INSERT INTO workspace_members(workspace_id,user_id,role) VALUES($1,$2,'member') ON CONFLICT (workspace_id,user_id) DO NOTHING`, x.ID, userID); err != nil {
+		return x, err
+	}
+	return x, tx.Commit()
+}
+func (r *Repository) ListMembers(workspaceID string) ([]application.Member, error) {
+	rows, err := r.db.Query(`SELECT u.id, wm.workspace_id, u.name, u.email, wm.role, u.initials, u.color, wm.team FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=$1 ORDER BY wm.joined_at,u.name`, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []application.Member{}
+	for rows.Next() {
+		var member application.Member
+		if err := rows.Scan(&member.ID, &member.WorkspaceID, &member.Name, &member.Email, &member.Role, &member.Initials, &member.Color, &member.Team); err != nil {
+			return nil, err
+		}
+		out = append(out, member)
+	}
+	return out, rows.Err()
+}
+func (r *Repository) ListProjects(id string) ([]application.Project, error) {
+	rows, err := r.db.Query(`SELECT id,project_key,workspace_id,name,description,color,icon,to_char(due_on,'YYYY-MM-DD') FROM projects WHERE workspace_id=$1 AND deleted_at IS NULL ORDER BY created_at,name`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []application.Project{}
+	for rows.Next() {
+		var x application.Project
+		var due sql.NullString
+		if err := rows.Scan(&x.ID, &x.Key, &x.WorkspaceID, &x.Name, &x.Description, &x.Color, &x.Icon, &due); err != nil {
+			return nil, err
+		}
+		if due.Valid {
+			x.DueOn = &due.String
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+func (r *Repository) CreateProject(id string, i application.CreateProjectInput) (application.Project, error) {
+	var x application.Project
+	var due sql.NullString
+	err := r.db.QueryRow(`INSERT INTO projects(project_key,workspace_id,name,description,color,icon,due_on) VALUES($1,$2,$3,$4,COALESCE(NULLIF($5,''),'purple'),COALESCE(NULLIF($6,''),'other'),NULLIF($7,'')::date) RETURNING id,project_key,workspace_id,name,description,color,icon,to_char(due_on,'YYYY-MM-DD')`, i.Key, id, i.Name, i.Description, i.Color, i.Icon, i.DueOn).Scan(&x.ID, &x.Key, &x.WorkspaceID, &x.Name, &x.Description, &x.Color, &x.Icon, &due)
+	if due.Valid {
+		x.DueOn = &due.String
+	}
+	return x, err
+}
+func (r *Repository) ListTasks(id string) ([]application.Task, error) {
+	rows, err := r.db.Query(`SELECT id,task_key,project_id,title,description,status,priority,assignee_id,to_char(start_on,'YYYY-MM-DD'),to_char(due_on,'YYYY-MM-DD'),rank::text,revision,updated_at FROM tasks WHERE project_id=$1 AND deleted_at IS NULL ORDER BY rank,title`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []application.Task{}
+	for rows.Next() {
+		var x application.Task
+		var a, s, d sql.NullString
+		if err := rows.Scan(&x.ID, &x.Key, &x.ProjectID, &x.Title, &x.Description, &x.Status, &x.Priority, &a, &s, &d, &x.Rank, &x.Revision, &x.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if a.Valid {
+			x.AssigneeID = &a.String
+		}
+		if s.Valid {
+			x.StartOn = &s.String
+		}
+		if d.Valid {
+			x.DueOn = &d.String
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+func (r *Repository) CreateTask(id string, i application.CreateTaskInput) (application.Task, error) {
+	var x application.Task
+	var a, s, d sql.NullString
+	rank := i.Rank
+	if rank == 0 {
+		rank = float64(time.Now().UnixNano())
+	}
+	err := r.db.QueryRow(`INSERT INTO tasks(task_key,project_id,title,description,status,priority,assignee_id,start_on,due_on,rank) VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,NULLIF($8,'')::date,NULLIF($9,'')::date,$10) RETURNING id,task_key,project_id,title,description,status,priority,assignee_id,to_char(start_on,'YYYY-MM-DD'),to_char(due_on,'YYYY-MM-DD'),rank::text,revision,updated_at`, i.Key, id, i.Title, i.Description, i.Status, i.Priority, i.AssigneeID, i.StartOn, i.DueOn, rank).Scan(&x.ID, &x.Key, &x.ProjectID, &x.Title, &x.Description, &x.Status, &x.Priority, &a, &s, &d, &x.Rank, &x.Revision, &x.UpdatedAt)
+	if a.Valid {
+		x.AssigneeID = &a.String
+	}
+	if s.Valid {
+		x.StartOn = &s.String
+	}
+	if d.Valid {
+		x.DueOn = &d.String
+	}
+	return x, err
+}

@@ -111,6 +111,9 @@ export function WorkspaceModals({
   const [profileTeam, setProfileTeam] = useState(profile?.team ?? "");
   const [profileColor, setProfileColor] = useState(profile?.color ?? "purple");
   const [profileError, setProfileError] = useState("");
+  const [profileSection, setProfileSection] = useState<
+    "profile" | "account" | "preferences" | "security"
+  >("profile");
   const [backupFile, setBackupFile] = useState<WorkspaceBackup | null>(null);
   const [backupError, setBackupError] = useState("");
   const appearance = <ThemeSelect className="form-label" />;
@@ -535,7 +538,7 @@ export function WorkspaceModals({
               <small>{member.email}</small>
             </span>
             <span>
-              {member.id === "alex"
+              {member.role === "owner"
                 ? t("workspace.ownerRole")
                 : t("workspace.memberRole")}
             </span>
@@ -794,6 +797,7 @@ export function WorkspaceModals({
     return (
       <Dialog
         title={t("workspace.profileSettings")}
+        className="profile-settings-dialog"
         onClose={close}
         onRequestClose={() => confirmDiscard(profileDirty)}
       >
@@ -804,7 +808,29 @@ export function WorkspaceModals({
             <p>{t("workspace.fullIdentity")}</p>
           </div>
         </div>
-        <form
+        <div className="profile-settings-layout">
+          <nav className="profile-settings-nav" aria-label="Profile settings">
+            {(
+              [
+                ["profile", "Profile"],
+                ["account", "Account"],
+                ["preferences", "Preferences"],
+                ["security", "Security"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={profileSection === value ? "active" : ""}
+                onClick={() => setProfileSection(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="profile-settings-content">
+            {profileSection === "profile" ? (
+              <form
           className="workspace-settings-form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -891,7 +917,48 @@ export function WorkspaceModals({
               {t("workspace.saveProfile")}
             </button>
           </div>
-        </form>
+              </form>
+            ) : profileSection === "account" ? (
+          <section className="profile-settings-section">
+            <h3>Account</h3>
+            <p>Manage the identity connected to your Orbit account.</p>
+            <div className="profile-settings-card">
+              <span>Email address</span>
+              <strong>{profileEmail || "—"}</strong>
+            </div>
+            <div className="profile-settings-card">
+              <span>Account role</span>
+              <strong>{profileRole}</strong>
+            </div>
+          </section>
+        ) : profileSection === "preferences" ? (
+          <section className="profile-settings-section">
+            <h3>Preferences</h3>
+            <p>Personalize how Orbit looks and feels for you.</p>
+            <div className="profile-settings-card">
+              <span>Appearance</span>
+              <strong>Use the theme control in the sidebar</strong>
+            </div>
+            <div className="profile-settings-card">
+              <span>Language</span>
+              <strong>Change language from Workspace settings</strong>
+            </div>
+          </section>
+        ) : (
+          <section className="profile-settings-section">
+            <h3>Security</h3>
+            <p>
+              Your password and active sessions are managed securely by the
+              backend.
+            </p>
+            <div className="profile-settings-card">
+              <span>Session</span>
+              <strong>HttpOnly session cookie enabled</strong>
+            </div>
+          </section>
+        )}
+          </div>
+        </div>
       </Dialog>
     );
   if (modal === "settings")

@@ -10,7 +10,7 @@ export interface AvatarProps {
 
 /** A presentational avatar; callers own lookup and identity data. */
 export function Avatar({
-  name = "Unassigned",
+  name = "—",
   initials,
   color = "slate",
   size = "sm",
@@ -30,7 +30,7 @@ export function Avatar({
       className={`avatar avatar-${size} avatar-${color}`}
       aria-label={label ? name : undefined}
     >
-      {text || "?"}
+      {text || "—"}
     </span>
   );
   return label ? <Tooltip content={name}>{avatar}</Tooltip> : avatar;

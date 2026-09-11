@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AnimatePresence,
@@ -18,6 +18,11 @@ import {
   type AssetProgress,
 } from "@/features/assets/asset-manager";
 import "@/features/assets/assets.css";
+import { currentUser, login, register } from "@/lib/auth-api";
+import type {
+  LoginFormValues,
+  RegisterFormValues,
+} from "@/lib/schemas/auth.schema";
 
 export function AuthScreen() {
   const [tab, setTab] = useState<"login" | "register">("login");
@@ -29,6 +34,18 @@ export function AuthScreen() {
   const starting = useRef(false);
   const router = useRouter();
   const reduced = useReducedMotion();
+
+  useEffect(() => {
+    let active = true;
+    void currentUser()
+      .then(() => {
+        if (active) router.replace("/workspace");
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const startAssetPreparation = () => {
     if (starting.current) return;
@@ -67,6 +84,22 @@ export function AuthScreen() {
     assetManager.current?.pause();
     starting.current = false;
   };
+  const handleLogin = async ({
+    identifier,
+    password,
+    rememberMe,
+  }: LoginFormValues) => {
+    await login(identifier, password, rememberMe);
+    startAssetPreparation();
+  };
+  const handleRegister = async ({
+    fullName,
+    email,
+    password,
+  }: RegisterFormValues) => {
+    await register(fullName, email, password);
+    startAssetPreparation();
+  };
   return (
     <MotionConfig
       reducedMotion="user"
@@ -97,12 +130,13 @@ export function AuthScreen() {
               <LoginForm
                 onSwitchToRegister={() => setTab("register")}
                 onForgotPassword={() => setInfo("reset")}
-                onLoginSuccess={startAssetPreparation}
+                onLoginSuccess={handleLogin}
               />
             ) : (
               <RegisterForm
                 onSwitchToLogin={() => setTab("login")}
                 onTerms={() => setInfo("terms")}
+                onRegisterSuccess={handleRegister}
               />
             )}
           </motion.div>

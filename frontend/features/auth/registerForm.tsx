@@ -17,9 +17,11 @@ import { useTranslation } from "react-i18next";
 export function RegisterForm({
   onSwitchToLogin,
   onTerms,
+  onRegisterSuccess,
 }: {
   onSwitchToLogin: () => void;
   onTerms: () => void;
+  onRegisterSuccess: (values: RegisterFormValues) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [notice, setNotice] = useState("");
@@ -57,9 +59,18 @@ export function RegisterForm({
       <form
         noValidate
         className="space-y-4"
-        onSubmit={handleSubmit(() =>
-          setNotice(t("auth.registerPreviewNotice")),
-        )}
+        onSubmit={handleSubmit(async (values) => {
+          setNotice("");
+          try {
+            await onRegisterSuccess(values);
+          } catch (error) {
+            setNotice(
+              error instanceof Error
+                ? error.message
+                : "Could not create account.",
+            );
+          }
+        })}
       >
         <Input
           label={t("auth.fullName")}

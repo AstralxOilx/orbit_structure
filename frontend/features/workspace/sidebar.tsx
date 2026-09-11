@@ -27,6 +27,7 @@ import { ThemeToggle } from "@/shared/theme/theme-toggle";
 import { useWorkspaceUI } from "./ui-store";
 import type { WorkspacePage } from "../tasks/domain/task";
 import { useTranslation } from "react-i18next";
+import { LogoutButton } from "@/features/auth/logout-button";
 
 export type WorkspaceModal =
   | "search"
@@ -61,7 +62,7 @@ export function Sidebar({
 }) {
   const MEMBERS = useMembers();
   const { t } = useTranslation();
-  const currentMember = MEMBERS.find((member) => member.id === "alex");
+  const currentMember = MEMBERS.find((member) => member.role === "owner");
   const collapsed = useWorkspaceUI((state) => state.collapsed);
   const { projects: PROJECTS, workspace } = useCatalog();
   const mobileNav = useWorkspaceUI((state) => state.mobileNav);
@@ -317,7 +318,7 @@ export function Sidebar({
             className="profile-button"
             onClick={() => onModal("profile-settings")}
           >
-            <Avatar id="alex" size="sm" />
+            <Avatar id={currentMember?.id ?? ""} size="sm" />
             <span>
               <strong>
                 {currentMember?.name ?? t("workspace.alexMorgan")}
@@ -328,6 +329,7 @@ export function Sidebar({
             </span>
           </button>
           <ThemeToggle />
+          <LogoutButton />
         </div>
       </div>
     </aside>

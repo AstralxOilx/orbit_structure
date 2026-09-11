@@ -25,6 +25,17 @@ export function PresenceLayer({ scope }: { scope: string }) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pending: CursorPacket | null = null;
     let lastSent = 0;
+    let closed = false;
+    const safePost = (
+      packet: CursorPacket | { kind: "leave"; session: string },
+    ) => {
+      if (closed) return;
+      try {
+        channel.postMessage(packet);
+      } catch {
+        // The channel can be closed by the browser during route transitions.
+      }
+    };
     const paint = () => {
       frame = null;
       const positions = [...peers.values()].map((peer) => ({
@@ -47,8 +58,8 @@ export function PresenceLayer({ scope }: { scope: string }) {
     };
     const flush = () => {
       timer = null;
-      if (pending) {
-        channel.postMessage(pending);
+      if (pending && !closed) {
+        safePost(pending);
         lastSent = performance.now();
         pending = null;
       }
@@ -128,13 +139,20 @@ export function PresenceLayer({ scope }: { scope: string }) {
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
     return () => {
-      channel.postMessage({ kind: "leave", session });
+      closed = true;
+      if (timer) clearTimeout(timer);
+      timer = null;
+      pending = null;
+      try {
+        channel.postMessage({ kind: "leave", session });
+      } catch {
+        // The channel may already be closed during a fast navigation.
+      }
       channel.close();
       document.removeEventListener("pointermove", onMove);
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
       clearInterval(expiry);
-      if (timer) clearTimeout(timer);
       if (frame !== null) cancelAnimationFrame(frame);
       peers.forEach((peer) => peer.node.remove());
       peers.clear();

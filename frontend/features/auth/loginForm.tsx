@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
@@ -8,6 +9,7 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { loginSchema, type LoginFormValues } from "@/lib/schemas/auth.schema";
 import { SocialButtons } from "./socialButtons";
 import { useTranslation } from "react-i18next";
+import { Toast } from "@/shared/ui/toast";
 
 export function LoginForm({
   onSwitchToRegister,
@@ -16,7 +18,7 @@ export function LoginForm({
 }: {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (values: LoginFormValues) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const {
@@ -28,6 +30,12 @@ export function LoginForm({
     mode: "onTouched",
     defaultValues: { identifier: "", password: "", rememberMe: false },
   });
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   return (
     <div className="space-y-6">
       <header>
@@ -44,7 +52,16 @@ export function LoginForm({
       </div>
       <form
         noValidate
-        onSubmit={handleSubmit(() => onLoginSuccess())}
+        onSubmit={handleSubmit(async (values) => {
+          setNotice("");
+          try {
+            await onLoginSuccess(values);
+          } catch (error) {
+            setNotice(
+              error instanceof Error ? error.message : "Could not sign in.",
+            );
+          }
+        })}
         className="space-y-5"
       >
         <Input
@@ -76,6 +93,11 @@ export function LoginForm({
             {t("auth.forgot")}
           </button>
         </div>
+        {notice && (
+          <div className="auth-toast">
+            <Toast message={notice} onDismiss={() => setNotice("")} />
+          </div>
+        )}
         <Button
           type="submit"
           size="lg"

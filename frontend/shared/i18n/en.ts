@@ -347,7 +347,6 @@ const en = {
       savedOnDevice: "Saved on this device",
       persistedChanges:
         "Your task changes persist when you refresh. Other tabs on this browser stay in sync.",
-      unassigned: "Unassigned",
       noTag: "No tag",
       events: "events",
       event: "event",

@@ -146,7 +146,6 @@ export default function TaskDrawer({
                   repository.update(task.id, { assigneeId: event.target.value })
                 }
               >
-                <option value="">{t("workspace.unassigned")}</option>
                 {MEMBERS.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
@@ -414,7 +413,7 @@ export function NewTaskDialog({
   const [description, setDescription] = useState("");
   const [taskStatus, setTaskStatus] = useState(status);
   const [priority, setPriority] = useState<Priority>("normal");
-  const [assignee, setAssignee] = useState("alex");
+  const [assignee, setAssignee] = useState("");
   const [due, setDue] = useState("");
   const [tag, setTag] = useState("Design");
   return (
@@ -507,7 +506,6 @@ export function NewTaskDialog({
               value={assignee}
               onChange={(event) => setAssignee(event.target.value)}
             >
-              <option value="">{t("workspace.unassigned")}</option>
               {MEMBERS.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}

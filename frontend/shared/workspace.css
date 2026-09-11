@@ -2670,6 +2670,103 @@ details > summary::-webkit-details-marker {
   color: var(--muted);
   margin-top: 6px;
 }
+.profile-settings-layout {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 24px;
+  min-width: 0;
+  width: 100%;
+}
+.profile-settings-dialog {
+  animation: none;
+  border: 0;
+  box-sizing: border-box;
+  height: 620px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  width: 720px;
+}
+.profile-settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  padding-right: 0;
+}
+.profile-settings-nav button {
+  border-radius: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  height: 39px;
+  padding: 0 12px;
+  text-align: left;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+.profile-settings-nav button:hover,
+.profile-settings-nav button.active {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.profile-settings-nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.profile-settings-content {
+  max-height: 490px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.profile-settings-section h3 {
+  font-size: 15px;
+  margin: 2px 0 6px;
+}
+.profile-settings-section > p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.profile-settings-card {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+}
+.profile-settings-card span {
+  color: var(--muted);
+}
+.profile-settings-card strong {
+  font-weight: 500;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .profile-settings-dialog {
+    height: calc(100dvh - 32px);
+    width: calc(100vw - 32px);
+  }
+  .profile-settings-layout {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .profile-settings-nav {
+    border: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 0 8px;
+  }
+  .profile-settings-content {
+    max-height: none;
+  }
+  .profile-settings-nav button {
+    white-space: nowrap;
+  }
+}
 .workspace-storage-info {
   display: flex;
   align-items: flex-start;

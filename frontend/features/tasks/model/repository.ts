@@ -14,6 +14,7 @@ export type SaveState = {
 export function createTaskRepository(
   initial: readonly Task[] = INITIAL_TASKS,
   workspaceId = "studio",
+  persistTask?: (task: Task) => Promise<Task>,
 ) {
   const storagePrefix =
     workspaceId === "studio"
@@ -111,6 +112,12 @@ export function createTaskRepository(
     getServerSnapshot: () => serverSnapshot,
     getTask: (id: string) => records.get(id),
     getServerTask: (id: string) => initial.find((task) => task.id === id),
+    hydrate(nextTasks: readonly Task[]) {
+      records.clear();
+      nextTasks.forEach((task) => records.set(task.id, task));
+      snapshot = Array.from(records.values()).filter((task) => !task.deleted);
+      listeners.forEach((notify) => notify());
+    },
     getSaveState: () => saveState,
     getServerSaveState: () => initialStatus,
     subscribe(notify: Listener) {
@@ -198,13 +205,30 @@ export function createTaskRepository(
     create(task: Omit<Task, "id" | "actor" | "updatedAt">) {
       const id = `ORB-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
       const updatedAt = Date.now();
-      commit({
+      const created = {
         ...task,
         id,
         actor,
         updatedAt,
         statusHistory: [{ from: null, to: task.status, at: updatedAt }],
-      });
+      } satisfies Task;
+      commit(created);
+      if (persistTask) {
+        void persistTask(created)
+          .then((remote) => {
+            if (records.get(id) !== created) return;
+            records.delete(id);
+            records.set(remote.id, remote);
+            publish(id);
+            publish(remote.id);
+          })
+          .catch(() =>
+            status({
+              status: "error",
+              message: "Could not save task to the server.",
+            }),
+          );
+      }
       appendActivity(workspaceId, {
         actorId: "alex",
         action: "created",

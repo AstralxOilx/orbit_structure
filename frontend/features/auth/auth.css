@@ -364,6 +364,29 @@
   font-size: 12px;
   line-height: 1.7;
 }
+.auth-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  width: min(360px, calc(100vw - 32px));
+}
+.auth-toast .toast {
+  background: color-mix(in srgb, #ef4444 8%, var(--surface));
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border-strong));
+  color: #b42318;
+  box-shadow: 0 14px 38px #21193624;
+}
+.auth-toast .toast-check {
+  color: #dc2626;
+}
+@media (max-width: 600px) {
+  .auth-toast {
+    right: 16px;
+    bottom: 16px;
+    width: calc(100vw - 32px);
+  }
+}
 .auth-orbit-ring {
   position: absolute;
   border: 1px solid #c3b5fd81;

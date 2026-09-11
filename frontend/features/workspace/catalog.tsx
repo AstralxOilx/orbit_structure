@@ -15,6 +15,15 @@ import {
   isScopeDeleted,
 } from "./deletions";
 import { appendActivity } from "./activity";
+import {
+  createProject as createProjectApi,
+  createWorkspace as createWorkspaceApi,
+  currentUser,
+  listMembers,
+  listProjects,
+  listWorkspaces,
+  joinWorkspace as joinWorkspaceApi,
+} from "@/lib/auth-api";
 
 export interface WorkspaceRecord {
   id: string;
@@ -215,7 +224,7 @@ type CatalogContextValue = {
   deleteProject: (id: string, confirmation: string) => () => void;
   deleteWorkspace: (id: string, confirmation: string) => () => void;
   switchWorkspace: (id: string) => void;
-  createWorkspace: (name: string) => string;
+  createWorkspace: (name: string) => Promise<string>;
   updateWorkspace: (input: {
     name: string;
     logo: WorkspaceLogo;
@@ -229,13 +238,13 @@ type CatalogContextValue = {
       "name" | "description" | "color" | "icon" | "due"
     >,
   ) => void;
-  joinWorkspace: (code: string) => string;
+  joinWorkspace: (code: string) => Promise<string>;
   createProject: (
     input: Pick<
       ProjectRecord,
       "name" | "description" | "color" | "due" | "icon"
     >,
-  ) => string;
+  ) => Promise<string>;
   addMember: (
     input: Pick<WorkspaceMember, "name" | "email" | "role" | "team" | "color">,
   ) => string;
@@ -276,6 +285,99 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       );
     }
     queueMicrotask(() => setReady(true));
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [remoteWorkspaces, user] = await Promise.all([
+          listWorkspaces(),
+          currentUser(),
+        ]);
+        const [projectResults, memberResults] = await Promise.all([
+          Promise.allSettled(
+            remoteWorkspaces.map((item) => listProjects(item.id)),
+          ),
+          Promise.allSettled(
+            remoteWorkspaces.map((item) => listMembers(item.id)),
+          ),
+        ]);
+        const remoteProjects = projectResults
+          .filter((result) => result.status === "fulfilled")
+          .flatMap((result) => result.value);
+        const remoteMembers = memberResults
+          .filter((result) => result.status === "fulfilled")
+          .flatMap((result) => result.value);
+        if (cancelled) return;
+        const workspaces = remoteWorkspaces.map((item) =>
+          normalizeWorkspace({
+            id: item.id,
+            name: item.name,
+            inviteCode: item.inviteCode,
+            createdAt: Date.parse(item.createdAt) || Date.now(),
+            logo: "initials",
+            initials: item.name
+              .split(/\s+/)
+              .map((part) => part[0])
+              .join("")
+              .slice(0, 3)
+              .toUpperCase(),
+            color: "purple",
+          }),
+        );
+        // Existing server workspaces should not reopen the first-run tour on
+        // every refresh. A newly created workspace can still start its tour.
+        workspaces.forEach((item) =>
+          localStorage.setItem(`orbit.onboarding.v1.${item.id}`, "1"),
+        );
+        const projects = remoteProjects.map((item) => ({
+          id: item.id,
+          workspaceId: item.workspaceId,
+          name: item.name,
+          description: item.description ?? "",
+          color: item.color || "purple",
+          icon: item.icon || "other",
+          due: item.dueOn || "Not scheduled",
+          team:
+            workspaces.find((workspace) => workspace.id === item.workspaceId)
+              ?.name ?? "",
+        }));
+        const members: WorkspaceMember[] = remoteMembers.map((member) => ({
+          id: member.id,
+          workspaceId: member.workspaceId,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          initials: member.initials,
+          color: member.color,
+          team: member.team,
+        }));
+        if (!members.length) {
+          remoteWorkspaces.forEach((item) => {
+            if (item.ownerId !== user.id) return;
+            members.push({
+              id: user.id,
+              workspaceId: item.id,
+              name: user.name,
+              email: user.email,
+              role: "owner",
+              initials: user.initials,
+              color: user.color,
+              team: "Workspace owner",
+            });
+          });
+        }
+        setCatalog({ workspaces, projects, members });
+        const saved = localStorage.getItem(ACTIVE_KEY);
+        const active = workspaces.some((item) => item.id === saved)
+          ? saved!
+          : workspaces[0]?.id;
+        if (active) {
+          localStorage.setItem(ACTIVE_KEY, active);
+          setActiveId(active);
+        }
+      } catch {
+        // Keep the local demo fallback when the API is unavailable.
+      }
+    })();
     const refresh = (event: StorageEvent) => {
       if (
         event.key !== null &&
@@ -294,7 +396,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       }
     };
     window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", refresh);
+    };
   }, []);
   const workspace = catalog.workspaces.find((item) => item.id === activeId) ??
     catalog.workspaces[0] ?? {
@@ -320,22 +425,23 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   );
   const switchWorkspace = (id: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
-    if (!readCatalog().workspaces.some((item) => item.id === id))
+    if (!catalog.workspaces.some((item) => item.id === id))
       throw new Error("Workspace not found.");
     localStorage.setItem(ACTIVE_KEY, id);
     setActiveId(id);
     setError("");
   };
-  const createWorkspace = (name: string) => {
+  const createWorkspace = async (name: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 80)
       throw new Error("Enter a workspace name between 1 and 80 characters.");
+    const created = await createWorkspaceApi(trimmed);
     const item: WorkspaceRecord = {
-      id: crypto.randomUUID(),
+      id: created.id,
       name: trimmed,
-      inviteCode: `ORBIT-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
-      createdAt: Date.now(),
+      inviteCode: created.inviteCode,
+      createdAt: Date.parse(created.createdAt) || Date.now(),
       logo: "initials",
       initials: name
         .split(/\s+/)
@@ -356,7 +462,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     setCatalog(readCatalog());
     setActiveId(item.id);
     appendActivity(item.id, {
-      actorId: "alex",
+      actorId: created.ownerId,
       action: "created",
       entity: "workspace",
       entityId: item.id,
@@ -448,22 +554,52 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       entityName: name,
     });
   };
-  const joinWorkspace = (code: string) => {
+  const joinWorkspace = async (code: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
-    const next = readCatalog();
-    const item = next.workspaces.find(
-      (value) => value.inviteCode === code.trim().toUpperCase(),
-    );
-    if (!item)
-      throw new Error(
-        "Code not found in this browser. Cross-device invitations need a connected workspace service.",
-      );
+    const remote = await joinWorkspaceApi(code);
+    const item = normalizeWorkspace({
+      id: remote.id,
+      name: remote.name,
+      inviteCode: remote.inviteCode,
+      createdAt: Date.parse(remote.createdAt) || Date.now(),
+      logo: "initials",
+      initials: remote.name
+        .split(/\s+/)
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 3)
+        .toUpperCase(),
+      color: "purple",
+    });
+    const remoteProjects = await listProjects(item.id);
+    const projects = remoteProjects.map((project) => ({
+      id: project.id,
+      workspaceId: project.workspaceId,
+      name: project.name,
+      description: project.description ?? "",
+      color: project.color || "purple",
+      icon: project.icon || "other",
+      due: project.dueOn || "Not scheduled",
+      team: item.name,
+    }));
     localStorage.setItem(ACTIVE_KEY, item.id);
-    setCatalog(next);
+    setCatalog((current) => ({
+      ...current,
+      workspaces: [
+        ...current.workspaces.filter((workspace) => workspace.id !== item.id),
+        item,
+      ],
+      projects: [
+        ...current.projects.filter(
+          (project) => project.workspaceId !== item.id,
+        ),
+        ...projects,
+      ],
+    }));
     setActiveId(item.id);
     return item.id;
   };
-  const createProject = (
+  const createProject = async (
     input: Pick<
       ProjectRecord,
       "name" | "description" | "color" | "due" | "icon"
@@ -488,15 +624,22 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       throw new Error(
         "A project with this name already exists in this workspace.",
       );
-    const item: ProjectRecord = {
-      ...input,
+    const remote = await createProjectApi(workspace.id, {
       name,
       description: input.description.trim().slice(0, 500),
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
+      color: input.color,
       icon: input.icon,
+      dueOn: input.due || undefined,
+    });
+    const item: ProjectRecord = {
+      ...input,
+      name: remote.name,
+      description: remote.description,
+      id: remote.id,
+      workspaceId: remote.workspaceId,
+      icon: remote.icon,
       team: workspace.name,
-      due: input.due || "Not scheduled",
+      due: remote.dueOn || "Not scheduled",
     };
     localStorage.setItem(PROJECT_PREFIX + item.id, JSON.stringify(item));
     setCatalog(readCatalog());

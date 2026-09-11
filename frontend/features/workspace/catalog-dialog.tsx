@@ -51,9 +51,9 @@ export function CatalogDialog({
   const [memberRole, setMemberRole] = useState<"admin" | "member">("member");
   const [memberTeam, setMemberTeam] = useState("General");
   const [memberColor, setMemberColor] = useState("purple");
-  const run = (action: () => void) => {
+  const run = async (action: () => void | Promise<void>) => {
     try {
-      action();
+      await action();
       setError("");
       setRetryAction(null);
     } catch (cause) {
@@ -109,9 +109,15 @@ export function CatalogDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            run(() =>
+            void run(async () =>
               onProject(
-                catalog.createProject({ name, description, color, due, icon }),
+                await catalog.createProject({
+                  name,
+                  description,
+                  color,
+                  due,
+                  icon,
+                }),
               ),
             );
           }}
@@ -298,8 +304,8 @@ export function CatalogDialog({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                run(() => {
-                  catalog.createWorkspace(name);
+                void run(async () => {
+                  await catalog.createWorkspace(name);
                   onWorkspace();
                 });
               }}
@@ -331,8 +337,8 @@ export function CatalogDialog({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                run(() => {
-                  catalog.joinWorkspace(code);
+                void run(async () => {
+                  await catalog.joinWorkspace(code);
                   onWorkspace();
                 });
               }}

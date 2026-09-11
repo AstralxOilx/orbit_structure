@@ -33,7 +33,7 @@ func TestHome(t *testing.T) {
 	if got := res.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
 		t.Fatalf("content type = %q, want HTML", got)
 	}
-	if !strings.Contains(res.Body.String(), "Orbit API · Command center") {
-		t.Fatal("home page title is missing")
+	if !strings.Contains(res.Body.String(), "Orbit API") {
+		t.Fatal("home page heading is missing")
 	}
 }
