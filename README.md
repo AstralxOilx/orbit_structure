@@ -6,6 +6,38 @@ The account UI is available at [/auth](http://localhost:3000/auth), and the work
 
 The app-wide theme and reusable UI components are documented in [Shared UI and theme](docs/shared-ui-and-theme.md). Login, Sign Up and Workspace share Light/Dark/System preferences; controls live in `shared/theme` and generic components in `shared/ui`.
 
+## App preview
+
+### Workspace board
+
+| Light | Dark |
+| --- | --- |
+| ![Orbit current light workspace](artifacts/orbit-overview-light-current.png) | ![Orbit current dark workspace](artifacts/orbit-overview-dark-current.png) |
+
+### Task detail
+
+| Light | Dark |
+| --- | --- |
+| ![Orbit current light task detail](artifacts/orbit-task-light-current.png) | ![Orbit current dark task detail](artifacts/orbit-task-dark-current.png) |
+
+### Mobile workspace
+
+| Light | Dark |
+| --- | --- |
+| ![Orbit current light mobile workspace](artifacts/orbit-mobile-light-current.png) | ![Orbit current dark mobile workspace](artifacts/orbit-mobile-dark-current.png) |
+
+### Sign in
+
+| Light | Dark |
+| --- | --- |
+| ![Orbit current light sign in](artifacts/orbit-auth-light-current.png) | ![Orbit current dark sign in](artifacts/orbit-auth-dark-current.png) |
+
+### Sign up
+
+| Light | Dark |
+| --- | --- |
+| ![Orbit sign up light theme](artifacts/auth-Sign%20Up-light.png) | ![Orbit sign up dark theme](artifacts/auth-Sign%20Up-dark.png) |
+
 The dark account screen includes responsive split-screen branding, Login / Sign Up tabs with Framer Motion, keyboard navigation, password visibility, registration strength feedback, and React Hook Form / Zod validation. Social sign-in, recovery and registration currently explain their preview status; no credentials are logged, persisted or submitted, and no account or verification email is created. Connect an authentication service before enabling real account access. Workspace navigation remains available through the explicit demo link.
 
 Run `npx playwright test tests/e2e/auth.spec.ts` with the dev server running to verify account interactions, accessibility and the sidebar width transition. Animations honor reduced-motion preferences. The tab indicator uses [Motion shared layout animation](https://motion.dev/docs/react-layout-animations), and form panels use [AnimatePresence](https://motion.dev/docs/react-animate-presence).
