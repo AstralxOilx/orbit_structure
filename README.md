@@ -36,7 +36,7 @@ The app-wide theme and reusable UI components are documented in [Shared UI and t
 
 | Light | Dark |
 | --- | --- |
-| ![Orbit sign up light theme](artifacts/auth-Sign%20Up-light.png) | ![Orbit sign up dark theme](artifacts/auth-Sign%20Up-dark.png) |
+| ![Orbit current light sign up](docs/images/orbit-signup-light.png) | ![Orbit current dark sign up](docs/images/orbit-signup-dark.png) |
 
 The dark account screen includes responsive split-screen branding, Login / Sign Up tabs with Framer Motion, keyboard navigation, password visibility, registration strength feedback, and React Hook Form / Zod validation. Social sign-in, recovery and registration currently explain their preview status; no credentials are logged, persisted or submitted, and no account or verification email is created. Connect an authentication service before enabling real account access. Workspace navigation remains available through the explicit demo link.
 
