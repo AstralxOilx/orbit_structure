@@ -1,7 +1,10 @@
 import { INITIAL_TASKS } from "../../workspace/data";
 import { isTask, type Task, type TaskStatus } from "../domain/task";
 import { isScopeDeleted } from "../../workspace/deletions";
-import { appendActivity } from "../../workspace/activity";
+import {
+  appendActivity,
+  updateActivityStatus,
+} from "../../workspace/activity";
 
 const PREFIX = "orbit.workspace.task.v1.";
 type Listener = () => void;
@@ -15,6 +18,8 @@ export function createTaskRepository(
   initial: readonly Task[] = INITIAL_TASKS,
   workspaceId = "studio",
   persistTask?: (task: Task) => Promise<Task>,
+  persistUpdate?: (task: Task) => Promise<Task>,
+  persistDelete?: (task: Task) => Promise<void>,
 ) {
   const storagePrefix =
     workspaceId === "studio"
@@ -58,9 +63,17 @@ export function createTaskRepository(
     records.set(incoming.id, incoming);
     publish(incoming.id);
   };
-  const commit = (next: Task, previous?: Task) => {
+  const commit = (
+    next: Task,
+    previous?: Task,
+    activityId?: string | null,
+  ) => {
+    const markActivity = (result: "success" | "failed") => {
+      if (activityId) updateActivityStatus(workspaceId, activityId, result);
+    };
     try {
       if (isScopeDeleted(workspaceId, next.projectId)) {
+        markActivity("failed");
         status({
           status: "error",
           message:
@@ -69,6 +82,7 @@ export function createTaskRepository(
         return;
       }
     } catch {
+      markActivity("failed");
       status({
         status: "error",
         message: "Browser storage is unavailable. Changes cannot be saved.",
@@ -83,6 +97,7 @@ export function createTaskRepository(
       try {
         if (isScopeDeleted(workspaceId, next.projectId)) {
           pending--;
+          markActivity("failed");
           if (!pending) status(initialStatus);
           return;
         }
@@ -92,6 +107,7 @@ export function createTaskRepository(
         if (!pending) status(initialStatus);
       } catch {
         pending--;
+        markActivity("failed");
         // Only roll back this operation; a newer local/remote edit wins.
         if (records.get(next.id) === next) {
           if (previous) records.set(next.id, previous);
@@ -105,6 +121,42 @@ export function createTaskRepository(
         });
       }
     });
+    if (next.deleted && persistDelete) {
+      void persistDelete(next)
+        .then(() => markActivity("success"))
+        .catch(() => {
+          markActivity("failed");
+          status({
+            status: "error",
+            message: "Could not delete the task on the server.",
+          });
+        });
+    } else if (!next.deleted && persistUpdate) {
+      void persistUpdate(next)
+        .then((remote) => {
+          markActivity("success");
+          if (!remote || records.get(next.id) !== next) return;
+          const merged = {
+            ...next,
+            ...remote,
+            statusHistory: next.statusHistory,
+            comments: next.comments,
+            dependsOn: next.dependsOn,
+            cover: next.cover,
+            actor,
+            updatedAt: Math.max(next.updatedAt, remote.updatedAt),
+          };
+          records.set(next.id, merged);
+          publish(next.id);
+        })
+        .catch(() => {
+          markActivity("failed");
+          status({
+            status: "error",
+            message: "Could not save task changes to the server.",
+          });
+        });
+    }
   };
 
   const repository = {
@@ -155,17 +207,14 @@ export function createTaskRepository(
               { from: previous.status, to: patch.status, at: updatedAt },
             ]
           : previous.statusHistory;
-      commit(
-        {
-          ...previous,
-          ...patch,
-          statusHistory,
-          updatedAt,
-          actor,
-        },
-        previous,
-      );
-      appendActivity(workspaceId, {
+      const next = {
+        ...previous,
+        ...patch,
+        statusHistory,
+        updatedAt,
+        actor,
+      };
+      const activityId = appendActivity(workspaceId, {
         actorId: "alex",
         action: patch.deleted
           ? "deleted"
@@ -179,28 +228,29 @@ export function createTaskRepository(
           patch.status !== previous.status
             ? `${previous.status} → ${patch.status}`
             : undefined,
+        status: persistUpdate || persistDelete ? "pending" : "success",
       });
+      commit(next, previous, activityId);
     },
     restore(id: string) {
       const previous = records.get(id);
       if (!previous || !previous.deleted) return;
-      commit(
-        {
-          ...previous,
-          deleted: false,
-          updatedAt: Math.max(Date.now(), previous.updatedAt + 1),
-          actor,
-        },
-        previous,
-      );
-      appendActivity(workspaceId, {
+      const next = {
+        ...previous,
+        deleted: false,
+        updatedAt: Math.max(Date.now(), previous.updatedAt + 1),
+        actor,
+      };
+      const activityId = appendActivity(workspaceId, {
         actorId: "alex",
         action: "updated",
         entity: "task",
         entityId: id,
         entityName: previous.title,
         detail: "Restored after deletion",
+        status: persistUpdate ? "pending" : "success",
       });
+      commit(next, previous, activityId);
     },
     create(task: Omit<Task, "id" | "actor" | "updatedAt">) {
       const id = `ORB-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
@@ -212,30 +262,33 @@ export function createTaskRepository(
         updatedAt,
         statusHistory: [{ from: null, to: task.status, at: updatedAt }],
       } satisfies Task;
+      const activityId = appendActivity(workspaceId, {
+        actorId: "alex",
+        action: "created",
+        entity: "task",
+        entityId: id,
+        entityName: task.title,
+        status: persistTask ? "pending" : "success",
+      });
       commit(created);
       if (persistTask) {
         void persistTask(created)
           .then((remote) => {
+            updateActivityStatus(workspaceId, activityId ?? "", "success");
             if (records.get(id) !== created) return;
             records.delete(id);
             records.set(remote.id, remote);
             publish(id);
             publish(remote.id);
           })
-          .catch(() =>
+          .catch(() => {
+            updateActivityStatus(workspaceId, activityId ?? "", "failed");
             status({
               status: "error",
               message: "Could not save task to the server.",
-            }),
-          );
+            });
+          });
       }
-      appendActivity(workspaceId, {
-        actorId: "alex",
-        action: "created",
-        entity: "task",
-        entityId: id,
-        entityName: task.title,
-      });
       return id;
     },
     setDependencies(id: string, dependencyIds: string[]): string | null {

@@ -461,6 +461,32 @@
 .discussion-skeleton-message.message-2 {
   width: 70%;
 }
+.discussion-error-state {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+}
+.discussion-error {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 520px;
+  padding: 28px;
+  border: 1px solid var(--auth-error);
+  border-radius: 14px;
+  color: var(--auth-error);
+  text-align: center;
+  background: var(--surface);
+}
+.discussion-error strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+.discussion-error p {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 12px;
+}
 .dialog {
   position: fixed;
   inset: 0;

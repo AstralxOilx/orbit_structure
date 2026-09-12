@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, MessageSquare, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
-  readActivities,
-  ACTIVITY_PREFIX,
-  type ActivityRecord,
-} from "./activity";
+  markNotificationsRead,
+  notificationReadKey,
+  readNotificationIds,
+  useWorkspaceActivityFeed,
+} from "./activity-feed";
 import type { Task } from "../tasks/domain/task";
 import type { WorkspacePreferences } from "./preferences";
 
@@ -20,9 +21,6 @@ type Notice = {
   target: "task" | "project" | "discussion" | "inbox";
   targetId?: string;
 };
-const readKey = (workspaceId: string) =>
-  `orbit.notifications.read.v1.${workspaceId}`;
-
 export function NotificationCenter({
   workspaceId,
   tasks,
@@ -44,27 +42,20 @@ export function NotificationCenter({
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [read, setRead] = useState<string[]>([]);
-  const [activities, setActivities] = useState<ActivityRecord[]>([]);
+  const activities = useWorkspaceActivityFeed(workspaceId);
   const [now, setNow] = useState(() => Date.now());
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 60_000);
-    const load = () => {
-      setActivities(readActivities(workspaceId));
-      try {
-        setRead(JSON.parse(localStorage.getItem(readKey(workspaceId)) ?? "[]"));
-      } catch {
-        setRead([]);
-      }
-    };
+    const load = () => setRead(readNotificationIds(workspaceId));
     load();
     const onStorage = (event: StorageEvent) => {
       if (
-        event.key?.startsWith(ACTIVITY_PREFIX) ||
-        event.key === readKey(workspaceId)
+        event.key === notificationReadKey(workspaceId)
       )
         load();
     };
+    const onNotificationsChanged = () => load();
     const onPointer = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -72,15 +63,26 @@ export function NotificationCenter({
       if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("storage", onStorage);
+    window.addEventListener("orbit:notifications-changed", onNotificationsChanged);
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKeyDown);
     return () => {
       window.clearInterval(clock);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("orbit:notifications-changed", onNotificationsChanged);
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [workspaceId]);
+  useEffect(() => {
+    const serverRead = activities
+      .filter((item) => item.read)
+      .map((item) => `activity-${item.id}`);
+    if (!serverRead.length) return;
+    queueMicrotask(() => {
+      setRead((current) => [...new Set([...current, ...serverRead])]);
+    });
+  }, [activities]);
   const notices = useMemo<Notice[]>(() => {
     const activityNotices = activities.map((item) => ({
       id: `activity-${item.id}`,
@@ -144,12 +146,12 @@ export function NotificationCenter({
   const markRead = (id: string) => {
     const next = [...new Set([...read, id])];
     setRead(next);
-    localStorage.setItem(readKey(workspaceId), JSON.stringify(next));
+    markNotificationsRead(workspaceId, [id]);
   };
   const markAllRead = () => {
     const next = [...new Set([...read, ...notices.map((item) => item.id)])];
     setRead(next);
-    localStorage.setItem(readKey(workspaceId), JSON.stringify(next));
+    markNotificationsRead(workspaceId, notices.map((item) => item.id));
   };
   const openNotice = (item: Notice) => {
     markRead(item.id);

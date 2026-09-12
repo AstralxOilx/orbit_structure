@@ -41,7 +41,9 @@ func main() {
 		Handler:           httpapi.NewRouter(db),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		// SSE workspace event streams are intentionally long-lived. Keep the
+		// connection open and let the handler close it when the client leaves.
+		WriteTimeout:      0,
 		IdleTimeout:       60 * time.Second,
 	}
 

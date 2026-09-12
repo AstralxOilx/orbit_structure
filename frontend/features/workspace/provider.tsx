@@ -19,10 +19,13 @@ import { INITIAL_TASKS } from "./data";
 import { ViewSkeleton } from "@/shared/ui";
 import {
   createTask as createTaskApi,
+  deleteTask as deleteTaskApi,
   listTasks,
+  updateTask as updateTaskApi,
   type TaskApiRecord,
 } from "@/lib/auth-api";
 import type { Task } from "../tasks/domain/task";
+import { subscribeWorkspaceRealtime } from "@/lib/workspace-realtime";
 
 function fromApiTask(task: TaskApiRecord): Task {
   return {
@@ -32,12 +35,16 @@ function fromApiTask(task: TaskApiRecord): Task {
     projectId: task.projectId,
     status: task.status,
     priority: task.priority,
-    tags: [],
+    tags: task.tags ?? [],
     assigneeId: task.assigneeId ?? "",
     startOn: task.startOn ?? "",
     dueOn: task.dueOn ?? "",
     rank: Number(task.rank) || 0,
-    subtasks: [],
+    subtasks: (task.checklist ?? []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      done: item.done,
+    })),
     comments: [],
     updatedAt: Date.parse(task.updatedAt) || Date.now(),
     actor: "server",
@@ -52,6 +59,9 @@ function isApiProjectId(value: string) {
     value,
   );
 }
+function isApiTaskId(value: string) {
+  return isApiProjectId(value);
+}
 
 const RepositoryContext = createContext<TaskRepository | null>(null);
 
@@ -62,22 +72,61 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     createTaskRepository(
       workspace.id === "studio" ? INITIAL_TASKS : [],
       workspace.id,
-      async (task) =>
-        fromApiTask(
-          await createTaskApi(task.projectId, {
-            title: task.title,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-            assigneeId:
-              task.assigneeId === "alex"
-                ? ownerId
-                : task.assigneeId || undefined,
-            startOn: task.startOn || undefined,
-            dueOn: task.dueOn || undefined,
-            rank: task.rank,
-          }),
-        ),
+      workspace.id === "studio"
+        ? undefined
+        : async (task) =>
+            fromApiTask(
+              await createTaskApi(task.projectId, {
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                assigneeId:
+                  task.assigneeId === "alex"
+                    ? ownerId
+                    : task.assigneeId || undefined,
+                startOn: task.startOn || undefined,
+                dueOn: task.dueOn || undefined,
+                rank: task.rank,
+                tags: task.tags,
+                checklist: task.subtasks.map((item, position) => ({
+                  title: item.title,
+                  done: item.done,
+                  position,
+                })),
+              }),
+            ),
+      workspace.id === "studio"
+        ? undefined
+        : async (task) => {
+            if (!isApiTaskId(task.id)) return task;
+            return fromApiTask(
+              await updateTaskApi(task.id, {
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                assigneeId:
+                  task.assigneeId === "alex"
+                    ? ownerId
+                    : task.assigneeId || undefined,
+                startOn: task.startOn || undefined,
+                dueOn: task.dueOn || undefined,
+                rank: task.rank,
+                tags: task.tags,
+                checklist: task.subtasks.map((item, position) => ({
+                  title: item.title,
+                  done: item.done,
+                  position,
+                })),
+              }),
+            );
+          },
+      workspace.id === "studio"
+        ? undefined
+        : async (task) => {
+            if (isApiTaskId(task.id)) await deleteTaskApi(task.id);
+          },
     ),
   );
   const [queryClient] = useState(
@@ -94,7 +143,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const remoteProjects = projects.filter((project) =>
       isApiProjectId(project.id),
     );
-    void Promise.all(remoteProjects.map((project) => listTasks(project.id)))
+    const refreshTasks = () => Promise.all(remoteProjects.map((project) => listTasks(project.id)))
       .then((groups) => {
         const tasks: Task[] = groups.flat().map(fromApiTask);
         repository.hydrate(tasks);
@@ -102,9 +151,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Keep the repository's local fallback when the API is unavailable.
       });
+    void refreshTasks();
+    const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, (event) => {
+      if (event.type === "task" || event.type === "project") void refreshTasks();
+    });
     queueMicrotask(() => setStarted(true));
-    return stop;
-  }, [repository, projects, ownerId]);
+    return () => {
+      unsubscribeRealtime();
+      stop();
+    };
+  }, [repository, projects, ownerId, workspace.id]);
   return (
     <QueryClientProvider client={queryClient}>
       <RepositoryContext value={repository}>

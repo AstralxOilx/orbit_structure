@@ -111,12 +111,37 @@ func Current(r *http.Request) (User, bool) {
 }
 func (m *Manager) CanAccessWorkspace(ctx context.Context, userID, workspaceID string) bool {
 	var ok bool
-	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id=$1 AND user_id=$2)`, workspaceID, userID).Scan(&ok)
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN workspaces w ON w.id=wm.workspace_id WHERE wm.workspace_id=$1 AND wm.user_id=$2 AND w.deleted_at IS NULL)`, workspaceID, userID).Scan(&ok)
+	return err == nil && ok
+}
+func (m *Manager) IsWorkspaceOwner(ctx context.Context, userID, workspaceID string) bool {
+	var ok bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspaces WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL)`, workspaceID, userID).Scan(&ok)
+	return err == nil && ok
+}
+func (m *Manager) CanManageWorkspace(ctx context.Context, userID, workspaceID string) bool {
+	var ok bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN workspaces w ON w.id=wm.workspace_id WHERE wm.workspace_id=$1 AND wm.user_id=$2 AND wm.role IN ('owner','admin') AND w.deleted_at IS NULL)`, workspaceID, userID).Scan(&ok)
+	return err == nil && ok
+}
+func (m *Manager) CanManageProject(ctx context.Context, userID, projectID string) bool {
+	var ok bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN workspaces w ON w.id=wm.workspace_id JOIN projects p ON p.workspace_id=w.id WHERE p.id=$1 AND wm.user_id=$2 AND wm.role IN ('owner','admin') AND w.deleted_at IS NULL AND p.deleted_at IS NULL)`, projectID, userID).Scan(&ok)
 	return err == nil && ok
 }
 func (m *Manager) CanAccessProject(ctx context.Context, userID, projectID string) bool {
 	var ok bool
-	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN projects p ON p.workspace_id=wm.workspace_id WHERE p.id=$1 AND wm.user_id=$2)`, projectID, userID).Scan(&ok)
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN workspaces w ON w.id=wm.workspace_id JOIN projects p ON p.workspace_id=wm.workspace_id WHERE p.id=$1 AND wm.user_id=$2 AND w.deleted_at IS NULL AND p.deleted_at IS NULL)`, projectID, userID).Scan(&ok)
+	return err == nil && ok
+}
+func (m *Manager) CanAccessTask(ctx context.Context, userID, taskID string) bool {
+	var ok bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN projects p ON p.workspace_id=wm.workspace_id JOIN tasks t ON t.project_id=p.id JOIN workspaces w ON w.id=p.workspace_id WHERE t.id=$1 AND wm.user_id=$2 AND t.deleted_at IS NULL AND p.deleted_at IS NULL AND w.deleted_at IS NULL)`, taskID, userID).Scan(&ok)
+	return err == nil && ok
+}
+func (m *Manager) CanViewAllActivity(ctx context.Context, userID, taskID string) bool {
+	var ok bool
+	err := m.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workspace_members wm JOIN projects p ON p.workspace_id=wm.workspace_id JOIN tasks t ON t.project_id=p.id JOIN workspaces w ON w.id=p.workspace_id WHERE t.id=$1 AND wm.user_id=$2 AND wm.role='owner' AND t.deleted_at IS NULL AND p.deleted_at IS NULL AND w.deleted_at IS NULL)`, taskID, userID).Scan(&ok)
 	return err == nil && ok
 }
 func (m *Manager) createSession(ctx context.Context, userID string) (string, error) {

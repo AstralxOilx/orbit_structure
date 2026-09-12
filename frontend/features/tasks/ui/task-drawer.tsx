@@ -4,7 +4,7 @@ import { DateInput } from "@/shared/ui/date-input";
 
 import { Select } from "@/shared/ui/select";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import { StatusIcon } from "@/features/tasks/ui/status-icon";
@@ -14,9 +14,12 @@ import {
   CalendarDays,
   Check,
   Flag,
+  History,
   ListChecks,
   MessageSquare,
+  Pencil,
   Plus,
+  Search,
   Send,
   Tag as TagIcon,
   Trash2,
@@ -29,13 +32,21 @@ import {
   useTask,
 } from "@/features/workspace/provider";
 import { TAG_COLORS } from "@/features/workspace/data";
-import { useMembers } from "@/features/workspace/catalog";
+import { useCatalog, useMembers } from "@/features/workspace/catalog";
 import { useProjects } from "@/features/workspace/catalog";
 import { taskStatusLabel } from "@/shared/i18n/task-copy";
 import { Dialog } from "@/shared/ui";
 import {
+  createTaskActivity,
+  deleteTaskActivity,
+  listTaskActivities,
+  listTaskActivityLog,
+  updateTaskActivity,
+  type TaskActivityApiRecord,
+} from "@/lib/auth-api";
+import { subscribeWorkspaceRealtime } from "@/lib/workspace-realtime";
+import {
   STATUSES,
-  STATUS_META,
   type Priority,
   type TaskStatus,
 } from "../domain/task";
@@ -71,6 +82,19 @@ function TaskTitleEditor({
   );
 }
 
+function isRemoteTaskId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+type CommentSort = "newest" | "oldest";
+type CommentRange = "all" | "1" | "3" | "7" | "30";
+const ACTIVITY_LABELS: Record<string, string> = {
+  created: "workspace.activityCreated",
+  updated: "workspace.activityUpdated",
+  moved: "workspace.activityMoved",
+  deleted: "workspace.activityDeleted",
+};
+
 export default function TaskDrawer({
   taskId,
   onClose,
@@ -85,11 +109,81 @@ export default function TaskDrawer({
   const task = useTask(taskId);
   const PROJECTS = useProjects();
   const MEMBERS = useMembers();
+  const { workspace } = useCatalog();
   const repository = useRepository();
   const saving = useSaveState().status === "saving";
   const [comment, setComment] = useState("");
   const [subtask, setSubtask] = useState("");
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("");
+  const [confirmSubtaskId, setConfirmSubtaskId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [apiActivities, setApiActivities] = useState<TaskActivityApiRecord[]>([]);
+  const [apiActivityLog, setApiActivityLog] = useState<TaskActivityApiRecord[]>([]);
+  const [commentQuery, setCommentQuery] = useState("");
+  const [commentSort, setCommentSort] = useState<CommentSort>("newest");
+  const [commentRange, setCommentRange] = useState<CommentRange>("all");
+  const [commentFilterNow] = useState(() => Date.now());
+  const [activitySort, setActivitySort] = useState<CommentSort>("newest");
+  const [activityRange, setActivityRange] = useState<CommentRange>("all");
+  const [activityActor, setActivityActor] = useState("all");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentBody, setEditingCommentBody] = useState("");
+  const remoteTask = isRemoteTaskId(taskId);
+  useEffect(() => {
+    let current = true;
+    if (!remoteTask) {
+      return () => { current = false; };
+    }
+    const loadActivities = () => {
+      void listTaskActivities(taskId)
+        .then((items) => {
+          if (current) setApiActivities(items);
+        })
+        .catch(() => { if (current) setApiActivities([]); });
+      void listTaskActivityLog(taskId)
+        .then((items) => { if (current) setApiActivityLog(items); })
+        .catch(() => { if (current) setApiActivityLog([]); });
+    };
+    loadActivities();
+    const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, (event) => {
+      if (event.type === "task_activity" && event.entityId === taskId) loadActivities();
+    });
+    return () => {
+      current = false;
+      unsubscribeRealtime();
+    };
+  }, [remoteTask, taskId, workspace.id]);
+  const apiComments = apiActivities.filter((item) => item.action === "comment");
+  const activityLog = apiActivityLog.filter((item) => item.action !== "comment");
+  const activityCutoff = activityRange === "all"
+    ? 0
+    : commentFilterNow - Number(activityRange) * 24 * 60 * 60 * 1000;
+  const filteredActivityLog = [...activityLog]
+    .filter((item) => activityActor === "all" || item.actorId === activityActor)
+    .filter((item) => !activityCutoff || Date.parse(item.createdAt) >= activityCutoff)
+    .sort((a, b) => {
+      const difference = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+      return activitySort === "newest" ? difference : -difference;
+    });
+  const normalizedCommentQuery = commentQuery.trim().toLowerCase();
+  const cutoff = commentRange === "all"
+    ? 0
+    : commentFilterNow - Number(commentRange) * 24 * 60 * 60 * 1000;
+  const sortComments = <T extends { createdAt: string }>(items: T[]) =>
+    [...items].sort((a, b) => {
+      const difference = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+      return commentSort === "newest" ? difference : -difference;
+    });
+  const filteredApiComments = sortComments(apiComments.filter((item) =>
+    (!normalizedCommentQuery || `${item.actorName} ${item.detail}`.toLowerCase().includes(normalizedCommentQuery)) &&
+    (!cutoff || Date.parse(item.createdAt) >= cutoff),
+  ));
+  const filteredLocalComments = sortComments((task?.comments ?? []).filter((item) => {
+    const authorName = MEMBERS.find((member) => member.id === item.authorId)?.name ?? "Team member";
+    return (!normalizedCommentQuery || `${authorName} ${item.body}`.toLowerCase().includes(normalizedCommentQuery)) &&
+      (!cutoff || Date.parse(item.createdAt) >= cutoff);
+  }));
   if (!task || task.deleted)
     return (
       <Dialog title="Task unavailable" onClose={onClose}>
@@ -232,6 +326,9 @@ export default function TaskDrawer({
           key={`description:${task.id}`}
           taskId={task.id}
           initialText={task.description}
+          onTextChange={(description) =>
+            repository.update(task.id, { description })
+          }
         />
         <section className="drawer-section">
           <div className="section-label">
@@ -243,27 +340,112 @@ export default function TaskDrawer({
               </span>
             </h3>
           </div>
-          {task.subtasks.map((item) => (
-            <label
-              className={`subtask-row ${item.done ? "subtask-done" : ""}`}
-              key={item.id}
-            >
-              <input
-                type="checkbox"
-                checked={item.done}
-                onChange={() =>
+          {task.subtasks.map((item) =>
+            editingSubtaskId === item.id ? (
+              <form
+                className="subtask-row subtask-edit-row"
+                key={item.id}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const title = editingSubtaskTitle.trim();
+                  if (!title) return;
                   repository.update(task.id, {
                     subtasks: task.subtasks.map((value) =>
-                      value.id === item.id
-                        ? { ...value, done: !value.done }
-                        : value,
+                      value.id === item.id ? { ...value, title } : value,
                     ),
-                  })
-                }
-              />
-              <span>{item.title}</span>
-            </label>
-          ))}
+                  });
+                  setEditingSubtaskId(null);
+                }}
+              >
+                <Input
+                  label=""
+                  value={editingSubtaskTitle}
+                  autoFocus
+                  aria-label={t("workspace.checklist")}
+                  onChange={(event) => setEditingSubtaskTitle(event.target.value)}
+                />
+                <button type="submit" disabled={saving || !editingSubtaskTitle.trim()}>
+                  {t("workspace.save")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingSubtaskId(null)}
+                >
+                  {t("workspace.cancel")}
+                </button>
+              </form>
+            ) : (
+              <div
+                className={`subtask-row ${item.done ? "subtask-done" : ""}`}
+                key={item.id}
+              >
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  onChange={() =>
+                    repository.update(task.id, {
+                      subtasks: task.subtasks.map((value) =>
+                        value.id === item.id
+                          ? { ...value, done: !value.done }
+                          : value,
+                      ),
+                    })
+                  }
+                />
+                <span>{item.title}</span>
+                {confirmSubtaskId === item.id ? (
+                  <>
+                    <span className="subtask-delete-confirm">
+                      {t("workspace.deleteChecklistConfirm")}
+                    </span>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      disabled={saving}
+                      onClick={() => {
+                        repository.update(task.id, {
+                          subtasks: task.subtasks.filter(
+                            (value) => value.id !== item.id,
+                          ),
+                        });
+                        setConfirmSubtaskId(null);
+                      }}
+                    >
+                      {t("workspace.deleteAction")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmSubtaskId(null)}
+                    >
+                      {t("workspace.cancel")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="subtask-action"
+                      aria-label={`${t("workspace.edit")} ${item.title}`}
+                      onClick={() => {
+                        setEditingSubtaskId(item.id);
+                        setEditingSubtaskTitle(item.title);
+                      }}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="subtask-action subtask-delete-action"
+                      aria-label={`${t("workspace.deleteAction")} ${item.title}`}
+                      onClick={() => setConfirmSubtaskId(item.id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
+              </div>
+            ),
+          )}
           <form
             className="add-subtask"
             onSubmit={(event) => {
@@ -300,11 +482,82 @@ export default function TaskDrawer({
           <div className="section-label">
             <h3>
               <MessageSquare size={15} />
-              {t("workspace.activity")}{" "}
-              <span className="small-count">{task.comments.length}</span>
+              {t("workspace.taskComments")}{" "}
+              <span className="small-count">{remoteTask ? apiComments.length : task.comments.length}</span>
             </h3>
           </div>
-          {task.comments.map((item) => (
+          <div className="comment-filter">
+            <Input
+              label=""
+              icon={<Search size={14} aria-hidden="true" />}
+              value={commentQuery}
+              onChange={(event) => setCommentQuery(event.target.value)}
+              placeholder={t("search.activity")}
+              aria-label={t("workspace.taskComments")}
+            />
+            <Select
+              value={commentSort}
+              onChange={(event) => setCommentSort(event.target.value as CommentSort)}
+              aria-label={t("workspace.commentSort")}
+            >
+              <option value="newest">{t("workspace.newestComments")}</option>
+              <option value="oldest">{t("workspace.oldestComments")}</option>
+            </Select>
+            <Select
+              value={commentRange}
+              onChange={(event) => setCommentRange(event.target.value as CommentRange)}
+              aria-label={t("workspace.commentPeriod")}
+            >
+              <option value="all">{t("workspace.allTime")}</option>
+              <option value="1">{t("workspace.lastDays", { count: 1 })}</option>
+              <option value="3">{t("workspace.lastDays", { count: 3 })}</option>
+              <option value="7">{t("workspace.lastDays", { count: 7 })}</option>
+              <option value="30">{t("workspace.lastDays", { count: 30 })}</option>
+            </Select>
+          </div>
+          <div className="comment-list">
+          {filteredApiComments.map((item) => (
+            <div className="activity-comment" key={item.id}>
+              <Avatar id={item.actorId} size="sm" />
+              <div>
+                {editingCommentId === item.id ? (
+                  <form className="comment-edit-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    const body = editingCommentBody.trim();
+                    if (!body) return;
+                    void updateTaskActivity(task.id, item.id, { detail: body })
+                      .then((updated) => {
+                        setApiActivities((current) => current.map((value) => value.id === item.id ? updated : value));
+                        setEditingCommentId(null);
+                      })
+                      .catch(() => undefined);
+                  }}>
+                    <Input label="" value={editingCommentBody} autoFocus onChange={(event) => setEditingCommentBody(event.target.value)} />
+                    <button type="submit" className="button button-small">{t("workspace.save")}</button>
+                    <button type="button" className="button button-small" onClick={() => setEditingCommentId(null)}>{t("workspace.cancel")}</button>
+                  </form>
+                ) : (
+                  <>
+                    <p>
+                      <strong>{item.actorName || MEMBERS.find((member) => member.id === item.actorId)?.name || t("workspace.teammateLabel")}</strong>
+                      <time>{new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(item.createdAt))}</time>
+                    </p>
+                    <span>{item.detail}</span>
+                    <div className="comment-actions">
+                      <button type="button" onClick={() => { setEditingCommentId(item.id); setEditingCommentBody(item.detail); }}>{t("workspace.edit")}</button>
+                      <button type="button" onClick={() => {
+                        if (!window.confirm(t("workspace.deleteActivityConfirm"))) return;
+                        void deleteTaskActivity(task.id, item.id)
+                          .then(() => setApiActivities((current) => current.filter((value) => value.id !== item.id)))
+                          .catch(() => undefined);
+                      }}>{t("workspace.deleteAction")}</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+          {!remoteTask && filteredLocalComments.map((item) => (
             <div className="activity-comment" key={item.id}>
               <Avatar id={item.authorId} size="sm" />
               <div>
@@ -322,25 +575,24 @@ export default function TaskDrawer({
                 </p>
                 <span>{item.body}</span>
               </div>
-            </div>
+           </div>
           ))}
+          </div>
           <form
             className="comment-form"
             onSubmit={(event) => {
               event.preventDefault();
               if (!comment.trim()) return;
-              repository.update(task.id, {
-                comments: [
-                  ...task.comments,
-                  {
-                    id: crypto.randomUUID(),
-                    authorId: "alex",
-                    body: comment.trim(),
-                    createdAt: new Date().toISOString(),
-                  },
-                ],
-              });
-              setComment("");
+              if (remoteTask) {
+                void createTaskActivity(task.id, { action: "comment", detail: comment.trim() })
+                  .then((created) => { setApiActivities((current) => [created, ...current]); setComment(""); })
+                  .catch(() => undefined);
+              } else {
+                repository.update(task.id, {
+                  comments: [...task.comments, { id: crypto.randomUUID(), authorId: "alex", body: comment.trim(), createdAt: new Date().toISOString() }],
+                });
+                setComment("");
+              }
             }}
           >
             <textarea
@@ -361,6 +613,64 @@ export default function TaskDrawer({
             </div>
           </form>
         </section>
+        {remoteTask && (
+          <section className="drawer-section activity-log-section">
+            <div className="section-label">
+              <h3>
+                <History size={15} />
+                {t("workspace.activity")} {" "}
+                <span className="small-count">{activityLog.length}</span>
+              </h3>
+            </div>
+            <div className="activity-filter">
+              <Select
+                value={activitySort}
+                onChange={(event) => setActivitySort(event.target.value as CommentSort)}
+                aria-label={t("workspace.commentSort")}
+              >
+                <option value="newest">{t("workspace.newestComments")}</option>
+                <option value="oldest">{t("workspace.oldestComments")}</option>
+              </Select>
+              <Select
+                value={activityRange}
+                onChange={(event) => setActivityRange(event.target.value as CommentRange)}
+                aria-label={t("workspace.commentPeriod")}
+              >
+                <option value="all">{t("workspace.allTime")}</option>
+                <option value="1">{t("workspace.lastDays", { count: 1 })}</option>
+                <option value="3">{t("workspace.lastDays", { count: 3 })}</option>
+                <option value="7">{t("workspace.lastDays", { count: 7 })}</option>
+                <option value="30">{t("workspace.lastDays", { count: 30 })}</option>
+              </Select>
+              <Select
+                value={activityActor}
+                onChange={(event) => setActivityActor(event.target.value)}
+                aria-label={t("workspace.activityActor")}
+              >
+                <option value="all">{t("workspace.allMembers")}</option>
+                {MEMBERS.map((member) => (
+                  <option key={member.id} value={member.id}>{member.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="activity-log-list">
+              {filteredActivityLog.map((item) => (
+                <div className="activity-log-item" key={item.id}>
+                  <Avatar id={item.actorId} size="xs" />
+                  <div>
+                    <p>
+                      <strong>{item.actorName || t("workspace.teammateLabel")}</strong>{" "}
+                      {t(ACTIVITY_LABELS[item.action] ?? item.action)}
+                    </p>
+                    <span>{item.detail}</span>
+                    <time>{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.createdAt))}</time>
+                  </div>
+                </div>
+              ))}
+              {!filteredActivityLog.length && <p className="activity-log-empty">{t("workspace.noActivity")}</p>}
+            </div>
+          </section>
+        )}
         <div className="drawer-danger">
           {confirmDelete ? (
             <>

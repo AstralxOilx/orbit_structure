@@ -2149,6 +2149,48 @@ details > summary::-webkit-details-marker {
   padding-top: 18px;
   border-top: 1px solid var(--border);
 }
+.dialog-discard-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  /* Keep the parent settings dialog's colors unchanged while confirming. */
+  background: transparent;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+.dialog-is-confirming > :not(.dialog-discard-backdrop) {
+  filter: blur(4px);
+  pointer-events: none;
+}
+.dialog-is-confirming {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.dialog-is-confirming > .dialog-discard-backdrop {
+  filter: none;
+}
+.dialog-discard-modal {
+  width: min(360px, 100%);
+  padding: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px #30244430;
+}
+.dialog-discard-modal h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.dialog-discard-modal p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
 .form-label {
   display: flex;
   flex-direction: column;
@@ -2397,6 +2439,37 @@ details > summary::-webkit-details-marker {
   text-decoration: line-through;
   color: var(--faint);
 }
+.subtask-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.subtask-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  padding: 3px;
+  border-radius: 4px;
+}
+.subtask-action:hover {
+  color: var(--accent);
+  background: var(--surface-hover);
+}
+.subtask-delete-action:hover {
+  color: var(--danger, #c24141);
+}
+.subtask-delete-confirm {
+  color: var(--muted);
+  font-size: 10px;
+}
+.subtask-edit-row .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+.subtask-edit-row .ui-input {
+  height: 28px;
+  font-size: 10px;
+}
 .add-subtask {
   display: flex;
   align-items: center;
@@ -2439,6 +2512,27 @@ details > summary::-webkit-details-marker {
   gap: 10px;
   margin: 17px 0;
 }
+.comment-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 8px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.comment-filter {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+.comment-filter .ui-field {
+  margin-bottom: 0;
+}
+.comment-filter select {
+  min-height: 34px;
+  max-width: 145px;
+}
 .activity-comment > div {
   flex: 1;
   min-width: 0;
@@ -2462,6 +2556,72 @@ details > summary::-webkit-details-marker {
   color: var(--muted);
   line-height: 1.7;
   overflow-wrap: anywhere;
+}
+.comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.comment-actions button {
+  color: var(--muted);
+  font-size: 10px;
+}
+.comment-actions button:hover {
+  color: var(--accent);
+}
+.comment-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.comment-edit-form .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+.activity-log-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+}
+.activity-filter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.activity-filter select {
+  min-height: 34px;
+  min-width: 0;
+}
+.activity-log-item {
+  display: flex;
+  gap: 9px;
+  margin: 14px 0;
+}
+.activity-log-item > div {
+  min-width: 0;
+  flex: 1;
+}
+.activity-log-item p {
+  margin-bottom: 3px;
+  font-size: 10px;
+}
+.activity-log-item span,
+.activity-log-item time,
+.activity-log-empty {
+  color: var(--muted);
+  font-size: 10px;
+}
+.activity-log-item span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.activity-log-item time {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
 }
 .comment-form {
   border: 1px solid var(--border-strong);

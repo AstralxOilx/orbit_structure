@@ -2,7 +2,7 @@
 
 import { Select } from "@/shared/ui/select";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import {
   ArrowUpRight,
@@ -15,6 +15,9 @@ import {
   X,
   History,
   Plus,
+  CheckCircle2,
+  CircleAlert,
+  LoaderCircle,
 } from "lucide-react";
 import { DiscussionSkeleton, EmptyState, Input, Tooltip } from "@/shared/ui";
 import { useTranslation } from "react-i18next";
@@ -22,22 +25,60 @@ import { useMembers } from "@/features/workspace/catalog";
 import { useCatalog, useProjects } from "./catalog";
 import type { Task } from "../tasks/domain/task";
 import {
+  createDiscussionMessage,
+  currentUser,
+  deleteDiscussionMessage,
+  listDiscussion,
+  listWorkspaceActivityLog,
+  updateDiscussionMessage,
+  type DiscussionMessageApiRecord,
+  type WorkspaceActivityApiRecord,
+} from "@/lib/auth-api";
+import {
+  isRealtimeWorkspaceId,
+  subscribeWorkspaceRealtime,
+} from "@/lib/workspace-realtime";
+import {
   ACTIVITY_PREFIX,
   appendActivity,
   readActivities,
   type ActivityAction,
   type ActivityEntity,
   type ActivityRecord,
+  subscribeActivityChanges,
 } from "./activity";
+import {
+  markNotificationsRead,
+  useWorkspaceActivityFeed,
+} from "./activity-feed";
 
 const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   created: "workspace.activityCreated",
   updated: "workspace.activityUpdated",
   moved: "workspace.activityMoved",
   deleted: "workspace.activityDeleted",
+  comment: "workspace.comment",
 };
 
-export function ActivityPage() {
+type ActivitySort = "newest" | "oldest";
+type ActivityRange = "all" | "1" | "3" | "7" | "30";
+
+function apiActivityToRecord(item: WorkspaceActivityApiRecord): ActivityRecord {
+  return {
+    id: item.id,
+    workspaceId: item.workspaceId,
+    actorId: item.actorId,
+    action: item.action as ActivityAction,
+    entity: item.entityType as ActivityEntity,
+    entityId: item.entityId,
+    entityName: item.entityName,
+    detail: item.detail,
+    status: "success",
+    createdAt: Date.parse(item.createdAt),
+  };
+}
+
+export function ActivityPage({ tasks: _tasks }: { tasks: Task[] }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === "th" ? "th-TH" : "en-US";
   const { workspace } = useCatalog();
@@ -45,22 +86,65 @@ export function ActivityPage() {
   const [activities, setActivities] = useState<ActivityRecord[]>([]);
   const [query, setQuery] = useState("");
   const [entity, setEntity] = useState<"all" | ActivityEntity>("all");
+  const [sort, setSort] = useState<ActivitySort>("newest");
+  const [range, setRange] = useState<ActivityRange>("all");
+  const [actor, setActor] = useState("all");
+  const [filterNow] = useState(() => Date.now());
   const [activityLimit, setActivityLimit] = useState(50);
   const storageKey = ACTIVITY_PREFIX + workspace.id;
   useEffect(() => {
-    const load = () => setActivities(readActivities(workspace.id));
+    let remoteActivities: ActivityRecord[] = [];
+    const load = () => {
+      const remoteKeys = new Set(
+        remoteActivities.map((item) => `${item.entity}:${item.entityId}:${item.action}`),
+      );
+      const localActivities = readActivities(workspace.id).filter(
+        (item) => !remoteKeys.has(`${item.entity}:${item.entityId}:${item.action}`),
+      );
+      setActivities([...remoteActivities, ...localActivities]);
+    };
     load();
     window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
+    const unsubscribeActivityChanges = subscribeActivityChanges(
+      workspace.id,
+      load,
+    );
+    let current = true;
+    void listWorkspaceActivityLog(workspace.id)
+      .then((items) => {
+        if (!current) return;
+        remoteActivities = items.map(apiActivityToRecord);
+        load();
+      })
+      .catch(() => undefined);
+    const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, () => {
+      void listWorkspaceActivityLog(workspace.id)
+        .then((items) => {
+          if (!current) return;
+          remoteActivities = items.map(apiActivityToRecord);
+          load();
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      current = false;
+      window.removeEventListener("storage", load);
+      unsubscribeActivityChanges();
+      unsubscribeRealtime();
+    };
   }, [storageKey, workspace.id]);
+  const cutoff = range === "all" ? 0 : filterNow - Number(range) * 24 * 60 * 60 * 1000;
   const filtered = activities.filter((item) => {
     const matchesEntity = entity === "all" || item.entity === entity;
+    const matchesActor = actor === "all" || item.actorId === actor;
     const haystack = `${item.entityName} ${item.detail ?? ""}`.toLowerCase();
     return (
       matchesEntity &&
+      matchesActor &&
+      (!cutoff || item.createdAt >= cutoff) &&
       (!query.trim() || haystack.includes(query.trim().toLowerCase()))
     );
-  });
+  }).sort((a, b) => sort === "newest" ? b.createdAt - a.createdAt : a.createdAt - b.createdAt);
   const visibleActivities = filtered.slice(0, activityLimit);
   const icon = (item: ActivityRecord) =>
     item.action === "created" ? (
@@ -112,17 +196,46 @@ export function ActivityPage() {
             {t("workspace.breadcrumbWorkspace")}
           </option>
         </Select>
+        <Select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as ActivitySort)}
+          aria-label={t("workspace.commentSort")}
+        >
+          <option value="newest">{t("workspace.newestComments")}</option>
+          <option value="oldest">{t("workspace.oldestComments")}</option>
+        </Select>
+        <Select
+          value={range}
+          onChange={(event) => setRange(event.target.value as ActivityRange)}
+          aria-label={t("workspace.commentPeriod")}
+        >
+          <option value="all">{t("workspace.allTime")}</option>
+          <option value="1">{t("workspace.lastDays", { count: 1 })}</option>
+          <option value="3">{t("workspace.lastDays", { count: 3 })}</option>
+          <option value="7">{t("workspace.lastDays", { count: 7 })}</option>
+          <option value="30">{t("workspace.lastDays", { count: 30 })}</option>
+        </Select>
+        <Select
+          value={actor}
+          onChange={(event) => setActor(event.target.value)}
+          aria-label={t("workspace.activityActor")}
+        >
+          <option value="all">{t("workspace.allMembers")}</option>
+          {members.map((member) => (
+            <option key={member.id} value={member.id}>{member.name}</option>
+          ))}
+        </Select>
       </div>
       <div className="activity-list">
         {!filtered.length ? (
           <EmptyState
             title={
-              query || entity !== "all"
+              query || entity !== "all" || actor !== "all" || range !== "all"
                 ? t("workspace.noMatchingActivity")
                 : t("workspace.noActivity")
             }
             description={
-              query || entity !== "all"
+              query || entity !== "all" || actor !== "all" || range !== "all"
                 ? t("workspace.clearActivityFilter")
                 : t("workspace.changesAppearHere")
             }
@@ -133,6 +246,9 @@ export function ActivityPage() {
                   onClick={() => {
                     setQuery("");
                     setEntity("all");
+                    setActor("all");
+                    setRange("all");
+                    setSort("newest");
                   }}
                 >
                   {t("workspace.clearFilters")}
@@ -168,6 +284,19 @@ export function ActivityPage() {
                   }).format(item.createdAt)}
                 </time>
                 <span
+                  className={`activity-result activity-result-${item.status}`}
+                  title={t(`workspace.activityStatus.${item.status}`)}
+                >
+                  {item.status === "success" ? (
+                    <CheckCircle2 size={14} aria-hidden="true" />
+                  ) : item.status === "failed" ? (
+                    <CircleAlert size={14} aria-hidden="true" />
+                  ) : (
+                    <LoaderCircle size={14} aria-hidden="true" />
+                  )}
+                  <span>{t(`workspace.activityStatus.${item.status}`)}</span>
+                </span>
+                <span
                   className={`activity-action activity-${item.action}`}
                   aria-hidden="true"
                 >
@@ -198,6 +327,17 @@ type DiscussionMessage = {
   createdAt: number;
   editedAt?: number;
 };
+function apiDiscussionToMessage(item: DiscussionMessageApiRecord): DiscussionMessage {
+  return {
+    id: item.id,
+    authorId: item.authorId,
+    body: item.body,
+    createdAt: Date.parse(item.createdAt),
+    editedAt: Date.parse(item.updatedAt) > Date.parse(item.createdAt)
+      ? Date.parse(item.updatedAt)
+      : undefined,
+  };
+}
 const MOCK_DISCUSSION_MESSAGES: DiscussionMessage[] = [
   {
     id: "discussion-mock-1",
@@ -230,12 +370,54 @@ export function DiscussionPage({
   const MEMBERS = useMembers();
   const [messages, setMessages] = useState<DiscussionMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [currentUserId, setCurrentUserId] = useState("alex");
   const storageKey = `orbit.workspace.discussion.v1.${workspace.id}`;
+  const remoteWorkspace = isRealtimeWorkspaceId(workspace.id);
   useEffect(() => {
+    if (remoteWorkspace) {
+      let current = true;
+      let latestRequest = 0;
+      const loadRemote = () => {
+        const requestId = ++latestRequest;
+        setLoading(true);
+        setLoadError("");
+        void listDiscussion(workspace.id)
+          .then((items) => {
+            if (!current || requestId !== latestRequest) return;
+            setMessages(items.map(apiDiscussionToMessage));
+            setLoadError("");
+          })
+          .catch((error: unknown) => {
+            if (!current || requestId !== latestRequest) return;
+            setMessages([]);
+            setLoadError(
+              error instanceof Error
+                ? error.message
+                : "Unable to load workspace discussion.",
+            );
+          })
+          .finally(() => {
+            if (current && requestId === latestRequest) setLoading(false);
+          });
+      };
+      void currentUser().then((user) => { if (current) setCurrentUserId(user.id); }).catch(() => undefined);
+      loadRemote();
+      const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, (event) => {
+        if (event.type === "discussion") loadRemote();
+      });
+      return () => {
+        current = false;
+        unsubscribeRealtime();
+      };
+    }
     const load = () => {
       try {
         const stored = localStorage.getItem(storageKey);
@@ -254,17 +436,64 @@ export function DiscussionPage({
       }
     };
     load();
-    queueMicrotask(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoadError("");
+      setLoading(false);
+    });
     const onStorage = (event: StorageEvent) => {
       if (event.key === storageKey) load();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [storageKey]);
+  }, [remoteWorkspace, retryVersion, storageKey, workspace.id]);
   if (loading) return <DiscussionSkeleton />;
+  if (loadError) {
+    return (
+      <section
+        className="discussion-page discussion-error-state"
+        aria-label={t("workspace.discussionLabel")}
+      >
+        <div className="discussion-error" role="alert">
+          <CircleAlert size={24} aria-hidden="true" />
+          <strong>{t("workspace.discussionLoadError")}</strong>
+          <p>{loadError}</p>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => setRetryVersion((version) => version + 1)}
+          >
+            {t("workspace.discussionRetry")}
+          </button>
+        </div>
+      </section>
+    );
+  }
   const send = () => {
     const body = draft.trim();
     if (!body) return;
+    if (remoteWorkspace) {
+      if (saving || savingRef.current) return;
+      savingRef.current = true;
+      setSaving(true);
+      void createDiscussionMessage(workspace.id, body)
+        .then((created) => {
+          setMessages((current) => current.some((message) => message.id === created.id)
+            ? current
+            : [...current, apiDiscussionToMessage(created)]);
+          setDraft("");
+          onNotify(t("workspace.messageSent"));
+        })
+        .catch((error: unknown) =>
+          onNotify(
+            error instanceof Error ? error.message : "Unable to send message.",
+          ),
+        )
+        .finally(() => {
+          savingRef.current = false;
+          setSaving(false);
+        });
+      return;
+    }
     const next = [
       ...messages,
       {
@@ -290,6 +519,30 @@ export function DiscussionPage({
   const saveEdit = (id: string) => {
     const body = editDraft.trim();
     if (!body) return;
+    if (remoteWorkspace) {
+      if (saving || savingRef.current) return;
+      savingRef.current = true;
+      setSaving(true);
+      void updateDiscussionMessage(workspace.id, id, body)
+        .then((updated) => {
+          setMessages((current) => current.map((message) => message.id === id ? apiDiscussionToMessage(updated) : message));
+          setEditingId(null);
+          setEditDraft("");
+          onNotify(t("workspace.messageUpdated"));
+        })
+        .catch((error: unknown) =>
+          onNotify(
+            error instanceof Error
+              ? error.message
+              : "Unable to update message.",
+          ),
+        )
+        .finally(() => {
+          savingRef.current = false;
+          setSaving(false);
+        });
+      return;
+    }
     const next = messages.map((message) =>
       message.id === id ? { ...message, body, editedAt: Date.now() } : message,
     );
@@ -310,6 +563,29 @@ export function DiscussionPage({
   const deleteMessage = (id: string) => {
     const removed = messages.find((message) => message.id === id);
     if (!removed) return;
+    if (remoteWorkspace) {
+      if (saving || savingRef.current) return;
+      savingRef.current = true;
+      setSaving(true);
+      void deleteDiscussionMessage(workspace.id, id)
+        .then(() => {
+          setMessages((current) => current.filter((message) => message.id !== id));
+          setDeletingId(null);
+          onNotify(t("workspace.messageDeleted"));
+        })
+        .catch((error: unknown) =>
+          onNotify(
+            error instanceof Error
+              ? error.message
+              : "Unable to delete message.",
+          ),
+        )
+        .finally(() => {
+          savingRef.current = false;
+          setSaving(false);
+        });
+      return;
+    }
     const next = messages.filter((message) => message.id !== id);
     setMessages(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
@@ -348,14 +624,14 @@ export function DiscussionPage({
           const member = MEMBERS.find((item) => item.id === message.authorId);
           return (
             <article
-              className={`discussion-message ${message.authorId === "alex" ? "is-own" : ""}`}
+              className={`discussion-message ${message.authorId === currentUserId ? "is-own" : ""}`}
               key={message.id}
             >
               <Avatar id={message.authorId} size="sm" />
               <div>
                 <div className="discussion-message-meta">
                   <strong>
-                    {message.authorId === "alex"
+                    {message.authorId === currentUserId
                       ? t("workspace.you")
                       : (member?.name ?? t("workspace.teammate"))}
                   </strong>
@@ -401,7 +677,7 @@ export function DiscussionPage({
                     )}
                   </>
                 )}
-                {message.authorId === "alex" && editingId !== message.id && (
+                {message.authorId === currentUserId && editingId !== message.id && (
                   <div className="discussion-message-actions">
                     {deletingId === message.id ? (
                       <div className="discussion-delete-confirm" role="alert">
@@ -465,7 +741,7 @@ export function DiscussionPage({
           send();
         }}
       >
-        <Avatar id="alex" size="sm" />
+        <Avatar id={currentUserId} size="sm" />
         <textarea
           aria-label={t("workspace.writeMessage")}
           value={draft}
@@ -480,8 +756,11 @@ export function DiscussionPage({
             }
           }}
         />
-        <button className="button button-primary" disabled={!draft.trim()}>
-          Send
+        <button
+          className="button button-primary"
+          disabled={!draft.trim() || saving}
+        >
+          {saving ? "Sending…" : "Send"}
         </button>
       </form>
     </section>
@@ -621,7 +900,7 @@ function InboxPageLegacy({
       </div>
       {comments.map((item) => (
         <button
-          key={`${item.task.id}-${item.id}`}
+          key={item.id}
           className={`inbox-item ${!read ? "unread" : ""}`}
           onClick={() => onOpen(item.task.id)}
         >
@@ -632,17 +911,32 @@ function InboxPageLegacy({
               <span>{t("workspace.commentedOn")}</span> {item.task.title}
             </strong>
             <span>{item.body}</span>
-            <small>
+            {/* <small>
               <MessageSquare size={12} />
-              {
-                PROJECTS.find((value) => value.id === item.task.projectId)?.name
-              }{" "}
               ·{" "}
+              {item.entity} ·{" "}
+              {new Intl.DateTimeFormat(locale, {
+                month: "short",
+                day: "numeric",
+              }).format(item.createdAt)}
+            </small> */}
+            {/* <small>
+              <MessageSquare size={12} />
+              {PROJECTS.find((value) => value.id === item.task.projectId)?.name}{" "}
+              Â·{" "}
               {new Intl.DateTimeFormat(locale, {
                 month: "short",
                 day: "numeric",
               }).format(new Date(item.createdAt))}
-            </small>
+            </small> */}
+            {/* <small>
+              <MessageSquare size={12} />
+              {item.entity} ·{" "}
+              {new Intl.DateTimeFormat(locale, {
+                month: "short",
+                day: "numeric",
+              }).format(item.createdAt)}
+            </small> */}
           </span>
           {!read && <i />}
         </button>
@@ -658,7 +952,7 @@ function InboxPageLegacy({
 }
 
 export function InboxPage({
-  tasks,
+  tasks: _tasks,
   read,
   onOpen,
   onRead,
@@ -670,16 +964,24 @@ export function InboxPage({
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === "th" ? "th-TH" : "en-US";
-  const PROJECTS = useProjects();
   const MEMBERS = useMembers();
+  const { workspace } = useCatalog();
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [query, setQuery] = useState("");
-  const comments = tasks
-    .flatMap((task) => task.comments.map((comment) => ({ ...comment, task })))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const visible = comments.filter((item) => {
-    const text = `${item.body} ${item.task.title}`.toLowerCase();
-    return text.includes(query.toLowerCase()) && (filter === "all" || !read);
+  const activities = useWorkspaceActivityFeed(workspace.id);
+  const unreadActivities = activities.filter((item) => !item.read);
+  const allRead = activities.length > 0 ? unreadActivities.length === 0 : read;
+  const markInboxRead = () => {
+    markNotificationsRead(
+      workspace.id,
+      activities.map((item) => `activity-${item.id}`),
+    );
+    onRead();
+  };
+  const visible = activities.filter((item) => {
+    const text = `${item.entityName} ${item.detail ?? ""}`.toLowerCase();
+    return text.includes(query.toLowerCase()) &&
+      (filter === "all" || !item.read);
   });
   return (
     <div className="inbox-page">
@@ -689,8 +991,8 @@ export function InboxPage({
           <p>{t("workspace.stayUpdated")}</p>
         </div>
         <span>
-          {comments.length}{" "}
-          {comments.length === 1
+          {activities.length}{" "}
+          {activities.length === 1
             ? t("workspace.notification")
             : t("workspace.notificationsPlural")}
         </span>
@@ -706,14 +1008,14 @@ export function InboxPage({
             aria-selected={filter === "all"}
             onClick={() => setFilter("all")}
           >
-            {t("workspace.allActivity")} <b>{comments.length}</b>
+            {t("workspace.allActivity")} <b>{activities.length}</b>
           </button>
           <button
             role="tab"
             aria-selected={filter === "unread"}
             onClick={() => setFilter("unread")}
           >
-            {t("workspace.unread")} <b>{read ? 0 : comments.length}</b>
+            {t("workspace.unread")} <b>{unreadActivities.length}</b>
           </button>
         </div>
         <div className="inbox-search">
@@ -727,8 +1029,8 @@ export function InboxPage({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        {!read && (
-          <button className="inbox-mark-read" onClick={onRead}>
+        {!allRead && (
+          <button className="inbox-mark-read" onClick={markInboxRead}>
             {t("workspace.markRead")}
           </button>
         )}
@@ -741,26 +1043,30 @@ export function InboxPage({
             : t("workspace.updates")}
         </span>
         <span>
-          {read ? t("workspace.allCaughtUp") : t("workspace.needsAttention")}
+          {allRead ? t("workspace.allCaughtUp") : t("workspace.needsAttention")}
         </span>
       </div>
       {visible.map((item) => (
         <button
-          key={`${item.task.id}-${item.id}`}
-          className={`inbox-item ${!read ? "unread" : ""}`}
+          key={item.id}
+          className={`inbox-item ${!item.read ? "unread" : ""}`}
           onClick={() => {
-            onRead();
-            onOpen(item.task.id);
+            markInboxRead();
+            if (item.entity === "task") onOpen(item.entityId);
           }}
         >
-          <Avatar id={item.authorId} size="md" />
+          <Avatar id={item.actorId} size="md" />
           <span className="inbox-item-copy">
             <strong>
-              {MEMBERS.find((member) => member.id === item.authorId)?.name}{" "}
-              <span>{t("workspace.commentedOn")}</span> {item.task.title}
+              {MEMBERS.find((member) => member.id === item.actorId)?.name ??
+                (item.actorId === "alex"
+                  ? t("workspace.you")
+                  : t("workspace.teammate"))}{" "}
+              <span>{t(ACTIVITY_ACTION_LABELS[item.action])}</span>{" "}
+              {item.entityName}
             </strong>
-            <span>{item.body}</span>
-            <small>
+            <span>{item.detail || item.entityName}</span>
+            {/* <small>
               <MessageSquare size={12} />
               {
                 PROJECTS.find((value) => value.id === item.task.projectId)?.name
@@ -770,6 +1076,14 @@ export function InboxPage({
                 month: "short",
                 day: "numeric",
               }).format(new Date(item.createdAt))}
+            </small> */}
+            <small>
+              <MessageSquare size={12} />
+              {item.entity} ·{" "}
+              {new Intl.DateTimeFormat(locale, {
+                month: "short",
+                day: "numeric",
+              }).format(item.createdAt)}
             </small>
           </span>
           {!read && <i />}

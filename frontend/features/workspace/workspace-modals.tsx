@@ -14,12 +14,14 @@ import {
   Layers3,
   Orbit,
   Rocket,
+  RefreshCw,
   Search,
   Sparkles,
   UsersRound,
 } from "lucide-react";
 import {
   Dialog,
+  DateInput,
   EmptyState,
   Input,
   LanguageSwitcher,
@@ -43,6 +45,14 @@ import {
 import { parseWorkspaceBackup } from "@/lib/schemas/workspace-backup.schema";
 import type { WorkspacePreferences } from "./preferences";
 import { readRecent, type RecentItem } from "./recent";
+
+function toDateInputValue(value: string | undefined) {
+  if (!value || value === "Not scheduled") return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export function WorkspaceModals({
   modal,
@@ -84,6 +94,7 @@ export function WorkspaceModals({
     updateWorkspace,
     updateProject,
     updateMemberProfile,
+    rotateInviteCode,
   } = useCatalog();
   const project = PROJECTS.find((item) => item.id === projectId);
   const [settingsName, setSettingsName] = useState(workspace.name);
@@ -101,7 +112,7 @@ export function WorkspaceModals({
   );
   const [projectIcon, setProjectIcon] = useState(project?.icon ?? "other");
   const [projectColor, setProjectColor] = useState(project?.color ?? "purple");
-  const [projectDue, setProjectDue] = useState(project?.due ?? "");
+  const [projectDue, setProjectDue] = useState(toDateInputValue(project?.due));
   const [projectError, setProjectError] = useState("");
   const profile =
     MEMBERS.find((member) => member.id === memberId) ?? MEMBERS[0];
@@ -133,7 +144,7 @@ export function WorkspaceModals({
           project?.description,
           project?.icon,
           project?.color,
-          project?.due,
+          toDateInputValue(project?.due),
         ][index],
     );
   const profileDirty =
@@ -162,7 +173,13 @@ export function WorkspaceModals({
       ],
   );
   const confirmDiscard = (dirty: boolean) =>
-    !dirty || window.confirm(t("workspace.discardChanges"));
+    !dirty;
+  const discardClose = {
+    title: t("workspace.discardChanges"),
+    message: t("workspace.discardChanges"),
+    confirmLabel: t("workspace.discardAction"),
+    cancelLabel: t("workspace.cancel"),
+  };
   if (modal === "backup")
     return (
       <Dialog title={t("workspace.backupTransfer")} onClose={close}>
@@ -526,6 +543,20 @@ export function WorkspaceModals({
           >
             {t("workspace.copyCode")}
           </button>
+          <button
+            className="button button-small"
+            onClick={async () => {
+              try {
+                await rotateInviteCode();
+                notify("Workspace invite code regenerated.");
+              } catch {
+                notify("Only workspace admins can regenerate the invite code.");
+              }
+            }}
+          >
+            <RefreshCw size={14} />
+            Regenerate
+          </button>
         </div>
         <h3 className="share-members-heading">
           {t("workspace.workspaceTeam")} <span>{MEMBERS.length}</span>
@@ -681,6 +712,7 @@ export function WorkspaceModals({
         title={t("workspace.projectSettings")}
         onClose={close}
         onRequestClose={() => confirmDiscard(projectDirty)}
+        confirmClose={discardClose}
       >
         <div className="project-settings-heading">
           <span className={`catalog-project-icon project-icon-${projectColor}`}>
@@ -693,10 +725,10 @@ export function WorkspaceModals({
         </div>
         <form
           className="workspace-settings-form"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             try {
-              updateProject(project.id, {
+              await updateProject(project.id, {
                 name: projectName,
                 description: projectDescription,
                 icon: projectIcon,
@@ -729,11 +761,10 @@ export function WorkspaceModals({
               onChange={(event) => setProjectDescription(event.target.value)}
             />
           </label>
-          <Input
+          <DateInput
             label={t("workspace.dueDate")}
             value={projectDue}
-            placeholder={t("workspace.projectDuePlaceholder")}
-            onChange={(event) => setProjectDue(event.target.value)}
+            onValueChange={setProjectDue}
           />
           <div className="form-label">
             {t("workspace.projectIcon")}
@@ -800,6 +831,7 @@ export function WorkspaceModals({
         className="profile-settings-dialog"
         onClose={close}
         onRequestClose={() => confirmDiscard(profileDirty)}
+        confirmClose={discardClose}
       >
         <div className="profile-settings-heading">
           <Avatar id={profile.id} size="lg" />
@@ -832,10 +864,10 @@ export function WorkspaceModals({
             {profileSection === "profile" ? (
               <form
           className="workspace-settings-form"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             try {
-              updateMemberProfile(profile.id, {
+              await updateMemberProfile(profile.id, {
                 name: profileName,
                 email: profileEmail,
                 role: profileRole as "owner" | "admin" | "member",
@@ -967,6 +999,7 @@ export function WorkspaceModals({
         title={t("workspace.workspaceSettings")}
         onClose={close}
         onRequestClose={() => confirmDiscard(workspaceDirty)}
+        confirmClose={discardClose}
       >
         <div className="settings-brand">
           <WorkspaceLogoView workspace={workspace} size="lg" />
@@ -977,10 +1010,10 @@ export function WorkspaceModals({
         </div>
         <form
           className="workspace-settings-form"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             try {
-              updateWorkspace({
+              await updateWorkspace({
                 name: settingsName,
                 initials: settingsInitials,
                 logo: settingsLogo,

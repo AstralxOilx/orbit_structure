@@ -29,6 +29,10 @@ export function CatalogDialog({
 }) {
   const { t } = useTranslation();
   const catalog = useCatalog();
+  const currentMember = catalog.members.find(
+    (member) => member.id === catalog.currentUserId,
+  );
+  const canManageMembers = currentMember?.role === "owner" || currentMember?.role === "admin";
   const [tab, setTab] = useState<"switch" | "create" | "join" | "manage">(
     "switch",
   );
@@ -79,16 +83,16 @@ export function CatalogDialog({
               ? `This removes ${tasks.filter((task) => task.projectId === deleting.id).length} tasks, including their comments, checklists and recorded history. Other projects are unaffected.`
               : "This removes the member from this workspace and prevents them from being assigned new tasks. Existing task history remains unchanged."
         }
-        onDelete={(confirmation) => {
+        onDelete={async (confirmation) => {
           const undo =
             deleting.kind === "workspace"
-              ? catalog.deleteWorkspace(deleting.id, confirmation)
+              ? await catalog.deleteWorkspace(deleting.id, confirmation)
               : deleting.kind === "project"
-                ? catalog.deleteProject(deleting.id, confirmation)
-                : catalog.removeMember(deleting.id);
+              ? await catalog.deleteProject(deleting.id, confirmation)
+              : await catalog.removeMember(deleting.id);
           onNotify?.(
             `${deleting.kind[0].toUpperCase()}${deleting.kind.slice(1)} deleted`,
-            undo,
+            typeof undo === "function" ? undo : undefined,
           );
           if (deleting.kind === "member") onClose();
           else onWorkspace();
@@ -403,7 +407,7 @@ export function CatalogDialog({
                         aria-label={`Role for ${member.name}`}
                         density="compact"
                         value={member.role}
-                        disabled={member.role === "owner"}
+                        disabled={member.role === "owner" || !canManageMembers}
                         onChange={(event) =>
                           run(() =>
                             catalog.updateMemberRole(
@@ -413,11 +417,14 @@ export function CatalogDialog({
                           )
                         }
                       >
-                        <option value="owner">{t("workspace.owner")}</option>
+                        {member.role === "owner" && (
+                          <option value="owner">{t("workspace.owner")}</option>
+                        )}
                         <option value="admin">{t("workspace.admin")}</option>
                         <option value="member">{t("workspace.member")}</option>
                       </Select>
-                      {member.role !== "owner" && (
+                      {member.role !== "owner" &&
+                        (canManageMembers || member.id === catalog.currentUserId) && (
                         <button
                           type="button"
                           className="member-remove-button"
@@ -436,12 +443,12 @@ export function CatalogDialog({
                     </div>
                   ))}
                 </div>
-                <form
+                {canManageMembers && <form
                   className="member-add-form"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    run(() => {
-                      catalog.addMember({
+                    void run(async () => {
+                      await catalog.addMember({
                         name: memberName,
                         email: memberEmail,
                         role: memberRole,
@@ -451,7 +458,7 @@ export function CatalogDialog({
                       setMemberName("");
                       setMemberEmail("");
                       setMemberTeam("General");
-                    });
+                      });
                   }}
                 >
                   <h4>{t("workspace.addMember")}</h4>
@@ -534,7 +541,7 @@ export function CatalogDialog({
                       Add member
                     </button>
                   </div>
-                </form>
+                </form>}
               </section>
               <h3 className="catalog-manage-heading">
                 Projects in {catalog.workspace.name}

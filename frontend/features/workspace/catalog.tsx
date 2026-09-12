@@ -23,7 +23,19 @@ import {
   listProjects,
   listWorkspaces,
   joinWorkspace as joinWorkspaceApi,
+  updateWorkspace as updateWorkspaceApi,
+  deleteWorkspace as deleteWorkspaceApi,
+  updateProject as updateProjectApi,
+  deleteProject as deleteProjectApi,
+  addMember as addMemberApi,
+  updateMember as updateMemberApi,
+  removeMember as removeMemberApi,
+  rotateWorkspaceInviteCode,
 } from "@/lib/auth-api";
+import {
+  isRealtimeWorkspaceId,
+  subscribeWorkspaceRealtime,
+} from "@/lib/workspace-realtime";
 
 export interface WorkspaceRecord {
   id: string;
@@ -218,11 +230,12 @@ type CatalogContextValue = {
   workspaces: WorkspaceRecord[];
   projects: ProjectRecord[];
   members: WorkspaceMember[];
+  currentUserId: string;
   workspace: WorkspaceRecord;
   ready: boolean;
   error: string;
-  deleteProject: (id: string, confirmation: string) => () => void;
-  deleteWorkspace: (id: string, confirmation: string) => () => void;
+  deleteProject: (id: string, confirmation: string) => Promise<() => void>;
+  deleteWorkspace: (id: string, confirmation: string) => Promise<() => void>;
   switchWorkspace: (id: string) => void;
   createWorkspace: (name: string) => Promise<string>;
   updateWorkspace: (input: {
@@ -247,13 +260,14 @@ type CatalogContextValue = {
   ) => Promise<string>;
   addMember: (
     input: Pick<WorkspaceMember, "name" | "email" | "role" | "team" | "color">,
-  ) => string;
-  updateMemberRole: (id: string, role: WorkspaceRole) => void;
+  ) => string | Promise<string>;
+  updateMemberRole: (id: string, role: WorkspaceRole) => void | Promise<void>;
   updateMemberProfile: (
     id: string,
     input: Pick<WorkspaceMember, "name" | "email" | "role" | "team" | "color">,
-  ) => void;
-  removeMember: (id: string) => () => void;
+  ) => void | Promise<void>;
+  removeMember: (id: string) => (() => void) | Promise<void | (() => void)>;
+  rotateInviteCode: () => Promise<void>;
 };
 const CatalogContext = createContext<CatalogContextValue | null>(null);
 
@@ -268,6 +282,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     })),
   });
   const [activeId, setActiveId] = useState("studio");
+  const [currentUserId, setCurrentUserId] = useState("alex");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -307,20 +322,16 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
           .filter((result) => result.status === "fulfilled")
           .flatMap((result) => result.value);
         if (cancelled) return;
+        setCurrentUserId(user.id);
         const workspaces = remoteWorkspaces.map((item) =>
           normalizeWorkspace({
             id: item.id,
             name: item.name,
             inviteCode: item.inviteCode,
             createdAt: Date.parse(item.createdAt) || Date.now(),
-            logo: "initials",
-            initials: item.name
-              .split(/\s+/)
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 3)
-              .toUpperCase(),
-            color: "purple",
+            logo: item.logo || "initials",
+            initials: item.initials || item.name.slice(0, 3).toUpperCase(),
+            color: item.color || "purple",
           }),
         );
         // Existing server workspaces should not reopen the first-run tour on
@@ -401,6 +412,38 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("storage", refresh);
     };
   }, []);
+  const remoteWorkspaceIds = catalog.workspaces
+    .filter((item) => isRealtimeWorkspaceId(item.id))
+    .map((item) => item.id)
+    .join(",");
+  useEffect(() => {
+    const ids = remoteWorkspaceIds ? remoteWorkspaceIds.split(",") : [];
+    const unsubscribers = ids.map((workspaceId) =>
+      subscribeWorkspaceRealtime(workspaceId, (event) => {
+        if (event.type !== "member") return;
+        void listMembers(workspaceId).then((items) => {
+          const members = items.map((member) => ({
+            id: member.id,
+            workspaceId: member.workspaceId,
+            name: member.name,
+            email: member.email,
+            role: member.role,
+            initials: member.initials,
+            color: member.color,
+            team: member.team,
+          }));
+          setCatalog((current) => ({
+            ...current,
+            members: [
+              ...current.members.filter((member) => member.workspaceId !== workspaceId),
+              ...members,
+            ],
+          }));
+        }).catch(() => undefined);
+      }),
+    );
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [remoteWorkspaceIds]);
   const workspace = catalog.workspaces.find((item) => item.id === activeId) ??
     catalog.workspaces[0] ?? {
       id: "",
@@ -442,14 +485,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       name: trimmed,
       inviteCode: created.inviteCode,
       createdAt: Date.parse(created.createdAt) || Date.now(),
-      logo: "initials",
-      initials: name
-        .split(/\s+/)
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 3)
-        .toUpperCase(),
-      color: "purple",
+      logo: created.logo || "initials",
+      initials: created.initials || name.slice(0, 3).toUpperCase(),
+      color: created.color || "purple",
     };
     localStorage.setItem(WORKSPACE_PREFIX + item.id, JSON.stringify(item));
     const owner = MEMBERS.find((member) => member.id === "alex");
@@ -470,7 +508,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     });
     return item.id;
   };
-  const updateWorkspace = (input: {
+  const updateWorkspace = async (input: {
     name: string;
     logo: WorkspaceLogo;
     initials: string;
@@ -483,22 +521,26 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter a workspace name between 1 and 80 characters.");
     if (input.logo === "initials" && !initials)
       throw new Error("Enter 1 to 3 letters for the workspace mark.");
-    const current = readCatalog().workspaces.find(
-      (item) => item.id === workspace.id,
-    );
+    const current = catalog.workspaces.find((item) => item.id === workspace.id);
     if (!current) throw new Error("This workspace is no longer available.");
+    const remote = await updateWorkspaceApi(current.id, { name, logo: input.logo, initials, color: input.color });
     const updated = normalizeWorkspace({
       ...current,
-      name,
-      logo: input.logo,
-      initials,
-      color: input.color,
+      name: remote.name,
+      logo: remote.logo || input.logo,
+      initials: remote.initials || initials,
+      color: remote.color || input.color,
     });
     localStorage.setItem(
       WORKSPACE_PREFIX + updated.id,
       JSON.stringify(updated),
     );
-    setCatalog(readCatalog());
+    setCatalog((currentCatalog) => ({
+      ...currentCatalog,
+      workspaces: currentCatalog.workspaces.map((item) =>
+        item.id === updated.id ? updated : item,
+      ),
+    }));
     setError("");
     appendActivity(updated.id, {
       actorId: "alex",
@@ -508,7 +550,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       entityName: updated.name,
     });
   };
-  const updateProject = (
+  const updateProject = async (
     id: string,
     input: Pick<
       ProjectRecord,
@@ -519,13 +561,12 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     const name = input.name.trim();
     if (!name || name.length > 100)
       throw new Error("Enter a project name between 1 and 100 characters.");
-    const next = readCatalog();
-    const current = next.projects.find(
+    const current = catalog.projects.find(
       (item) => item.id === id && item.workspaceId === workspace.id,
     );
     if (!current) throw new Error("This project is no longer available.");
     if (
-      next.projects.some(
+        catalog.projects.some(
         (item) =>
           item.id !== id &&
           item.workspaceId === workspace.id &&
@@ -535,17 +576,31 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       throw new Error(
         "A project with this name already exists in this workspace.",
       );
+    const remote = await updateProjectApi(id, {
+      name,
+      description: input.description.trim().slice(0, 500),
+      color: input.color,
+      icon: input.icon,
+      dueOn: input.due || undefined,
+    });
+    const updated: ProjectRecord = {
+      ...current,
+      name: remote.name,
+      description: remote.description,
+      color: remote.color,
+      icon: remote.icon,
+      due: remote.dueOn || "Not scheduled",
+    };
     localStorage.setItem(
       PROJECT_PREFIX + id,
-      JSON.stringify({
-        ...current,
-        ...input,
-        name,
-        description: input.description.trim().slice(0, 500),
-        due: input.due || "Not scheduled",
-      }),
+      JSON.stringify(updated),
     );
-    setCatalog(readCatalog());
+    setCatalog((currentCatalog) => ({
+      ...currentCatalog,
+      projects: currentCatalog.projects.map((item) =>
+        item.id === id ? updated : item,
+      ),
+    }));
     appendActivity(workspace.id, {
       actorId: "alex",
       action: "updated",
@@ -556,22 +611,29 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   };
   const joinWorkspace = async (code: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
-    const remote = await joinWorkspaceApi(code);
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) throw new Error("Enter a workspace code.");
+    const localWorkspace = catalog.workspaces.find(
+      (item) =>
+        !isRealtimeWorkspaceId(item.id) &&
+        item.inviteCode.trim().toUpperCase() === normalizedCode,
+    );
+    if (localWorkspace) {
+      switchWorkspace(localWorkspace.id);
+      return localWorkspace.id;
+    }
+    const remote = await joinWorkspaceApi(normalizedCode);
     const item = normalizeWorkspace({
       id: remote.id,
       name: remote.name,
       inviteCode: remote.inviteCode,
       createdAt: Date.parse(remote.createdAt) || Date.now(),
-      logo: "initials",
-      initials: remote.name
-        .split(/\s+/)
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 3)
-        .toUpperCase(),
-      color: "purple",
+      logo: remote.logo || "initials",
+      initials: remote.initials || remote.name.slice(0, 3).toUpperCase(),
+      color: remote.color || "purple",
     });
     const remoteProjects = await listProjects(item.id);
+    const remoteMembers = await listMembers(item.id);
     const projects = remoteProjects.map((project) => ({
       id: project.id,
       workspaceId: project.workspaceId,
@@ -595,6 +657,19 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         ),
         ...projects,
       ],
+      members: [
+        ...current.members.filter((member) => member.workspaceId !== item.id),
+        ...remoteMembers.map((member) => ({
+          id: member.id,
+          workspaceId: member.workspaceId,
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          initials: member.initials,
+          color: member.color,
+          team: member.team,
+        })),
+      ],
     }));
     setActiveId(item.id);
     return item.id;
@@ -609,13 +684,12 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     const name = input.name.trim();
     if (!name || name.length > 100)
       throw new Error("Enter a project name between 1 and 100 characters.");
-    const next = readCatalog();
-    if (!next.workspaces.some((item) => item.id === workspace.id))
+    if (!catalog.workspaces.some((item) => item.id === workspace.id))
       throw new Error(
         "This workspace was deleted. Switch to another workspace.",
       );
     if (
-      next.projects.some(
+      catalog.projects.some(
         (project) =>
           project.workspaceId === workspace.id &&
           project.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
@@ -642,7 +716,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       due: remote.dueOn || "Not scheduled",
     };
     localStorage.setItem(PROJECT_PREFIX + item.id, JSON.stringify(item));
-    setCatalog(readCatalog());
+    setCatalog((currentCatalog) => ({
+      ...currentCatalog,
+      projects: [...currentCatalog.projects, item],
+    }));
     appendActivity(workspace.id, {
       actorId: "alex",
       action: "created",
@@ -652,18 +729,22 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     });
     return item.id;
   };
-  const deleteProject = (id: string, confirmation: string) => {
+  const deleteProject = async (id: string, confirmation: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
-    const target = readCatalog().projects.find(
+    const target = catalog.projects.find(
       (project) => project.id === id && project.workspaceId === workspace.id,
     );
     if (!target) throw new Error("This project is no longer available.");
     if (confirmation !== target.name)
       throw new Error("The project name must match exactly.");
+    await deleteProjectApi(id);
     // One durable tombstone commits the deletion; seed data and late tab writes
     // cannot make this project visible again.
     localStorage.setItem(PROJECT_DELETED_PREFIX + id, String(Date.now()));
-    setCatalog(readCatalog());
+    setCatalog((currentCatalog) => ({
+      ...currentCatalog,
+      projects: currentCatalog.projects.filter((item) => item.id !== id),
+    }));
     appendActivity(workspace.id, {
       actorId: "alex",
       action: "deleted",
@@ -684,12 +765,13 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       });
     };
   };
-  const deleteWorkspace = (id: string, confirmation: string) => {
+  const deleteWorkspace = async (id: string, confirmation: string) => {
     if (!ready) throw new Error("Workspaces are still loading.");
-    const target = readCatalog().workspaces.find((item) => item.id === id);
+    const target = catalog.workspaces.find((item) => item.id === id);
     if (!target) throw new Error("This workspace is no longer available.");
     if (confirmation !== target.name)
       throw new Error("The workspace name must match exactly.");
+    await deleteWorkspaceApi(id);
     appendActivity(workspace.id, {
       actorId: "alex",
       action: "deleted",
@@ -698,7 +780,16 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       entityName: target.name,
     });
     localStorage.setItem(WORKSPACE_DELETED_PREFIX + id, String(Date.now()));
-    setCatalog(readCatalog());
+    setCatalog((currentCatalog) => ({
+      ...currentCatalog,
+      workspaces: currentCatalog.workspaces.filter((item) => item.id !== id),
+      projects: currentCatalog.projects.filter(
+        (project) => project.workspaceId !== id,
+      ),
+      members: currentCatalog.members.filter(
+        (member) => member.workspaceId !== id,
+      ),
+    }));
     return () => {
       localStorage.removeItem(WORKSPACE_DELETED_PREFIX + target.id);
       setCatalog(readCatalog());
@@ -712,9 +803,19 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       });
     };
   };
-  const addMember = (
+  const rotateInviteCode = async () => {
+    if (!isRealtimeWorkspaceId(workspace.id)) return;
+    const updated = await rotateWorkspaceInviteCode(workspace.id);
+    setCatalog((current) => ({
+      ...current,
+      workspaces: current.workspaces.map((item) => item.id === workspace.id
+        ? normalizeWorkspace({ ...item, inviteCode: updated.inviteCode })
+        : item),
+    }));
+  };
+  const addMember = async (
     input: Pick<WorkspaceMember, "name" | "email" | "role" | "team" | "color">,
-  ) => {
+  ): Promise<string> => {
     if (!ready) throw new Error("Workspaces are still loading.");
     const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
@@ -724,6 +825,28 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter a valid email address.");
     if (members.some((member) => member.email.toLowerCase() === email))
       throw new Error("This email is already a member of the workspace.");
+    if (isRealtimeWorkspaceId(workspace.id)) {
+      const remote = await addMemberApi(workspace.id, {
+        email,
+        role: input.role === "admin" ? "admin" : "member",
+        team: input.team.trim().slice(0, 60) || "General",
+      });
+      const item: WorkspaceMember = {
+        id: remote.id,
+        workspaceId: remote.workspaceId,
+        name: remote.name,
+        email: remote.email,
+        role: remote.role,
+        team: remote.team,
+        initials: remote.initials,
+        color: remote.color,
+      };
+      setCatalog((current) => ({
+        ...current,
+        members: [...current.members.filter((value) => value.id !== item.id), item],
+      }));
+      return item.id;
+    }
     const id = crypto.randomUUID();
     const item: WorkspaceMember = {
       id,
@@ -754,9 +877,31 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     });
     return id;
   };
-  const updateMemberRole = (id: string, role: WorkspaceRole) => {
+  const updateMemberRole = async (id: string, role: WorkspaceRole) => {
     const target = members.find((member) => member.id === id);
     if (!target) throw new Error("Member not found.");
+    if (isRealtimeWorkspaceId(workspace.id)) {
+      const updated = await updateMemberApi(workspace.id, id, {
+        name: target.name,
+        email: target.email,
+        role,
+        team: target.team,
+        color: target.color,
+      });
+      setCatalog((current) => ({
+        ...current,
+        members: current.members.map((member) => member.id === id ? {
+          ...member,
+          name: updated.name,
+          email: updated.email,
+          role: updated.role,
+          team: updated.team,
+          initials: updated.initials,
+          color: updated.color,
+        } : member),
+      }));
+      return;
+    }
     if (target.role === "owner" && role !== "owner")
       throw new Error(
         "The workspace owner cannot be downgraded in local mode.",
@@ -775,7 +920,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       detail: `Role changed to ${role}`,
     });
   };
-  const updateMemberProfile = (
+  const updateMemberProfile = async (
     id: string,
     input: Pick<WorkspaceMember, "name" | "email" | "role" | "team" | "color">,
   ) => {
@@ -801,6 +946,28 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         .slice(0, 2)
         .toUpperCase(),
     };
+    if (isRealtimeWorkspaceId(workspace.id)) {
+      const remote = await updateMemberApi(workspace.id, id, {
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
+        team: updated.team,
+        color: updated.color,
+      });
+      setCatalog((current) => ({
+        ...current,
+        members: current.members.map((member) => member.id === id ? {
+          ...member,
+          name: remote.name,
+          email: remote.email,
+          role: remote.role,
+          team: remote.team,
+          initials: remote.initials,
+          color: remote.color,
+        } : member),
+      }));
+      return;
+    }
     localStorage.setItem(
       MEMBER_PREFIX + workspace.id + "." + id,
       JSON.stringify(updated),
@@ -814,11 +981,19 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       entityName: updated.name,
     });
   };
-  const removeMember = (id: string) => {
+  const removeMember = async (id: string) => {
     const target = members.find((member) => member.id === id);
     if (!target) throw new Error("Member not found.");
     if (target.role === "owner" || target.id === "alex")
       throw new Error("The workspace owner cannot be removed.");
+    if (isRealtimeWorkspaceId(workspace.id)) {
+      await removeMemberApi(workspace.id, id);
+      setCatalog((current) => ({
+        ...current,
+        members: current.members.filter((member) => member.id !== id),
+      }));
+      return;
+    }
     localStorage.removeItem(MEMBER_PREFIX + workspace.id + "." + id);
     localStorage.setItem(
       MEMBER_REMOVED_PREFIX + workspace.id + "." + id,
@@ -857,6 +1032,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         workspaces: catalog.workspaces,
         projects,
         members,
+        currentUserId,
         workspace,
         ready,
         error,
@@ -872,6 +1048,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         updateMemberRole,
         updateMemberProfile,
         removeMember,
+        rotateInviteCode,
       }}
     >
       {children}

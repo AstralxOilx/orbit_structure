@@ -8,9 +8,11 @@ import { createDocumentSession } from "./document-session";
 export default function DescriptionEditor({
   taskId,
   initialText,
+  onTextChange,
 }: {
   taskId: string;
   initialText: string;
+  onTextChange?: (value: string) => void;
 }) {
   const { t } = useTranslation();
   const [session] = useState(() => createDocumentSession(taskId, initialText));
@@ -47,7 +49,10 @@ export default function DescriptionEditor({
         aria-label={t("workspace.taskDescriptionLabel")}
         className="description-editor"
         value={snapshot.text}
-        onChange={(event) => session.replace(event.target.value)}
+        onChange={(event) => {
+          session.replace(event.target.value);
+          onTextChange?.(event.target.value);
+        }}
         placeholder={t("workspace.taskDescriptionPlaceholder")}
       />
     </section>

@@ -73,6 +73,10 @@ import {
 import { TaskToolbar } from "@/features/tasks/ui/task-toolbar";
 import { ProjectIcon } from "./ui/project-icon";
 import { NotificationCenter } from "./notification-center";
+import {
+  markNotificationsRead,
+  useWorkspaceActivityFeed,
+} from "./activity-feed";
 import { OnboardingDialog } from "./onboarding";
 import { rememberRecent } from "./recent";
 import {
@@ -121,18 +125,20 @@ function Workspace() {
   const [density, setDensity] = useState("comfortable");
   const [preferences, setPreferences] =
     useState<WorkspacePreferences>(DEFAULT_PREFERENCES);
-  const currentMember = MEMBERS.find((member) => member.role === "owner");
+  const { projects, workspace, currentUserId } = useCatalog();
+  const currentMember = MEMBERS.find((member) => member.id === currentUserId) ??
+    MEMBERS.find((member) => member.role === "owner");
   const [selectedMember, setSelectedMember] = useState(currentMember?.id ?? "");
   const [inboxRead, setInboxRead] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const openedDrawer = useRef(false);
-  const { projects, workspace } = useCatalog();
+  const inboxActivities = useWorkspaceActivityFeed(workspace.id);
   useEffect(() => {
     if (
       currentMember &&
       !MEMBERS.some((member) => member.id === selectedMember)
     )
-      setSelectedMember(currentMember.id);
+      queueMicrotask(() => setSelectedMember(currentMember.id));
   }, [currentMember, MEMBERS, selectedMember]);
   const projectId = projects.some(
     (project) => project.id === params.get("project"),
@@ -423,9 +429,7 @@ function Workspace() {
           ).length
         }
         inboxCount={
-          inboxRead
-            ? 0
-            : tasks.reduce((count, task) => count + task.comments.length, 0)
+          inboxActivities.filter((item) => !item.read).length
         }
         navigate={navigate}
         onModal={setModal}
@@ -632,7 +636,16 @@ function Workspace() {
                   </button>
                 </>
               ) : page === "inbox" ? (
-                <button className="button" onClick={() => setInboxRead(true)}>
+                <button
+                  className="button"
+                  onClick={() => {
+                    markNotificationsRead(
+                      workspace.id,
+                      inboxActivities.map((item) => `activity-${item.id}`),
+                    );
+                    setInboxRead(true);
+                  }}
+                >
                   <CheckCheck size={16} />
                   {t("workspace.markRead")}
                 </button>
@@ -875,7 +888,7 @@ function Workspace() {
           ) : page === "discussion" ? (
             <DiscussionPage onNotify={notify} />
           ) : page === "activity" ? (
-            <ActivityPage />
+            <ActivityPage tasks={tasks} />
           ) : (
             <InboxPage
               tasks={tasks}

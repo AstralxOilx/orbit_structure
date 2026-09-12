@@ -16,7 +16,7 @@ export function DeleteConfirmation({
   name: string;
   impact: ReactNode;
   onClose: () => void;
-  onDelete: (confirmation: string) => void;
+  onDelete: (confirmation: string) => void | Promise<void>;
 }) {
   const id = useId();
   const [confirmation, setConfirmation] = useState("");
@@ -44,7 +44,14 @@ export function DeleteConfirmation({
           if (!matches || !acknowledged || submitting.current) return;
           submitting.current = true;
           try {
-            onDelete(confirmation);
+            void Promise.resolve(onDelete(confirmation)).catch((cause) => {
+              setError(
+                cause instanceof Error
+                  ? cause.message
+                  : "Could not delete. Please try again.",
+              );
+              submitting.current = false;
+            });
           } catch (cause) {
             setError(
               cause instanceof Error
