@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 	"orbit/backend/internal/application"
 	"orbit/backend/internal/auth"
+	"time"
 )
 
 type handlers struct {
@@ -373,7 +373,7 @@ func (h handlers) listWorkspaceNotifications(w http.ResponseWriter, r *http.Requ
 	}
 	// Notifications are workspace-wide events. Activity-log visibility remains
 	// separately controlled by the existing owner/member rules.
-	x, err := h.service.ListWorkspaceActivity(workspaceID, u.ID, true)
+	x, err := h.service.ListWorkspaceNotifications(workspaceID, u.ID)
 	if err != nil {
 		apiServerError(w)
 		return
@@ -432,7 +432,7 @@ func (h handlers) updateTaskActivity(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid JSON"})
 		return
 	}
-	x, err := h.service.UpdateTaskActivity(r.PathValue("activityID"), u.ID, i)
+	x, err := h.service.UpdateTaskActivity(r.PathValue("taskID"), r.PathValue("activityID"), u.ID, i)
 	if err != nil {
 		writeJSON(w, 400, map[string]string{"error": err.Error()})
 		return
@@ -448,7 +448,7 @@ func (h handlers) deleteTaskActivity(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 403, map[string]string{"error": "task access denied"})
 		return
 	}
-	if err := h.service.DeleteTaskActivity(r.PathValue("activityID"), u.ID); err != nil {
+	if err := h.service.DeleteTaskActivity(r.PathValue("taskID"), r.PathValue("activityID"), u.ID); err != nil {
 		apiServerError(w)
 		return
 	}

@@ -121,7 +121,7 @@ function Workspace() {
   const [toast, setToast] = useState<{ message: string; action?: () => void }>({
     message: "",
   });
-  const [starred, setStarred] = useState(false);
+  const [starredProjectIds, setStarredProjectIds] = useState<string[]>([]);
   const [density, setDensity] = useState("comfortable");
   const [preferences, setPreferences] =
     useState<WorkspacePreferences>(DEFAULT_PREFERENCES);
@@ -146,6 +146,7 @@ function Workspace() {
     ? params.get("project")!
     : (projects[0]?.id ?? "");
   const project = projects.find((item) => item.id === projectId);
+  const starred = starredProjectIds.includes(projectId);
   useEffect(() => {
     const next = readPreferences(workspace.id);
     queueMicrotask(() => {
@@ -157,14 +158,26 @@ function Workspace() {
     document.documentElement.dataset.dateFormat = next.dateFormat;
   }, [workspace.id]);
   useEffect(() => {
-    queueMicrotask(() =>
-      setStarred(
-        localStorage.getItem(
-          `orbit.workspace.favorite.v1.${workspace.id}.${projectId}`,
-        ) === "1",
-      ),
-    );
-  }, [workspace.id, projectId]);
+    const key = `orbit.workspace.favorites.v1.${workspace.id}`;
+    try {
+      const stored = JSON.parse(localStorage.getItem(key) ?? "[]");
+      if (Array.isArray(stored) && stored.every((id) => typeof id === "string")) {
+        queueMicrotask(() => setStarredProjectIds(stored));
+        return;
+      }
+    } catch {
+      // Fall back to the former per-project preference below.
+    }
+    const migrated = projects
+      .filter(
+        (item) =>
+          localStorage.getItem(
+            `orbit.workspace.favorite.v1.${workspace.id}.${item.id}`,
+          ) === "1",
+      )
+      .map((item) => item.id);
+    queueMicrotask(() => setStarredProjectIds(migrated));
+  }, [projects, workspace.id]);
   useEffect(() => {
     const key = `orbit.onboarding.v1.${workspace.id}`;
     if (localStorage.getItem(key) === "1") return;
@@ -267,6 +280,25 @@ function Workspace() {
   const notify = useCallback(
     (message: string, action?: () => void) => setToast({ message, action }),
     [],
+  );
+  const toggleProjectStar = useCallback(
+    (id: string) => {
+      setStarredProjectIds((current) => {
+        const next = current.includes(id)
+          ? current.filter((projectId) => projectId !== id)
+          : [...current, id];
+        try {
+          localStorage.setItem(
+            `orbit.workspace.favorites.v1.${workspace.id}`,
+            JSON.stringify(next),
+          );
+        } catch {
+          // Keep the current session responsive when browser storage is unavailable.
+        }
+        return next;
+      });
+    },
+    [workspace.id],
   );
   const navigate = useCallback(
     (section: WorkspacePage, id?: string) => {
@@ -422,6 +454,7 @@ function Workspace() {
       <Sidebar
         page={page}
         projectId={projectId}
+        starredProjectIds={starredProjectIds}
         myCount={
           tasks.filter(
             (task) =>
@@ -554,12 +587,7 @@ function Workspace() {
                         }
                         aria-pressed={starred}
                         onClick={() => {
-                          const next = !starred;
-                          setStarred(next);
-                          localStorage.setItem(
-                            `orbit.workspace.favorite.v1.${workspace.id}.${projectId}`,
-                            next ? "1" : "0",
-                          );
+                          toggleProjectStar(projectId);
                         }}
                       >
                         <Star
@@ -581,11 +609,13 @@ function Workspace() {
                       ? t("workspace.overviewDescription")
                       : page === "teams"
                         ? t("workspace.teamDescription")
-                        : page === "inbox"
-                          ? t("workspace.inboxDescription")
-                          : page === "activity"
-                            ? t("workspace.activityDescription")
-                            : t("workspace.tasksDescription")}
+                          : page === "inbox"
+                            ? t("workspace.inboxDescription")
+                            : page === "discussion"
+                              ? t("workspace.discussionDescription")
+                            : page === "activity"
+                              ? t("workspace.activityDescription")
+                              : t("workspace.tasksDescription")}
                 </p>
               </div>
             </div>

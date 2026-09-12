@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   Plus,
   Settings,
+  Star,
   UsersRound,
 } from "lucide-react";
 import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
@@ -46,6 +47,7 @@ export type WorkspaceModal =
 export function Sidebar({
   page,
   projectId,
+  starredProjectIds,
   myCount,
   inboxCount,
   navigate,
@@ -54,6 +56,7 @@ export function Sidebar({
 }: {
   page: WorkspacePage;
   projectId: string;
+  starredProjectIds: readonly string[];
   myCount: number;
   inboxCount: number;
   navigate: (page: WorkspacePage, projectId?: string) => void;
@@ -269,6 +272,14 @@ export function Sidebar({
                   <ProjectIcon project={project} size={14} />
                 </span>
                 <span>{project.name}</span>
+                {starredProjectIds.includes(project.id) && (
+                  <Star
+                    className="project-favorite-star"
+                    size={13}
+                    fill="currentColor"
+                    aria-label={t("workspace.favoriteProject")}
+                  />
+                )}
                 {page === "project" && projectId === project.id && (
                   <span className="active-project-dot" />
                 )}

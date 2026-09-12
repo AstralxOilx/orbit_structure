@@ -29,8 +29,8 @@ type Repository interface {
 	ListTaskActivityLog(string, string, bool) ([]TaskActivity, error)
 	ListWorkspaceActivity(string, string, bool) ([]WorkspaceActivity, error)
 	CreateTaskActivity(string, string, CreateTaskActivityInput) (TaskActivity, error)
-	UpdateTaskActivity(string, string, UpdateTaskActivityInput) (TaskActivity, error)
-	DeleteTaskActivity(string, string) error
+	UpdateTaskActivity(string, string, string, UpdateTaskActivityInput) (TaskActivity, error)
+	DeleteTaskActivity(string, string, string) error
 	ListDiscussion(context.Context, string) ([]DiscussionMessage, error)
 	CreateDiscussion(context.Context, string, string, CreateDiscussionMessageInput) (DiscussionMessage, error)
 	UpdateDiscussion(context.Context, string, string, string, UpdateDiscussionMessageInput) (DiscussionMessage, error)
@@ -342,9 +342,9 @@ func (s *Service) CreateTaskActivity(taskID, actorID string, i CreateTaskActivit
 	i.Detail = strings.TrimSpace(i.Detail)
 	return s.repo.CreateTaskActivity(taskID, actorID, i)
 }
-func (s *Service) UpdateTaskActivity(id, actorID string, i UpdateTaskActivityInput) (TaskActivity, error) {
-	if id == "" || actorID == "" {
-		return TaskActivity{}, errors.New("activity and actor are required")
+func (s *Service) UpdateTaskActivity(taskID, id, actorID string, i UpdateTaskActivityInput) (TaskActivity, error) {
+	if taskID == "" || id == "" || actorID == "" {
+		return TaskActivity{}, errors.New("task, activity and actor are required")
 	}
 	if strings.TrimSpace(i.Detail) == "" {
 		return TaskActivity{}, errors.New("activity detail is required")
@@ -353,13 +353,13 @@ func (s *Service) UpdateTaskActivity(id, actorID string, i UpdateTaskActivityInp
 		return TaskActivity{}, errors.New("activity detail must be at most 2000 characters")
 	}
 	i.Detail = strings.TrimSpace(i.Detail)
-	return s.repo.UpdateTaskActivity(id, actorID, i)
+	return s.repo.UpdateTaskActivity(taskID, id, actorID, i)
 }
-func (s *Service) DeleteTaskActivity(id, actorID string) error {
-	if id == "" || actorID == "" {
-		return errors.New("activity and actor are required")
+func (s *Service) DeleteTaskActivity(taskID, id, actorID string) error {
+	if taskID == "" || id == "" || actorID == "" {
+		return errors.New("task, activity and actor are required")
 	}
-	return s.repo.DeleteTaskActivity(id, actorID)
+	return s.repo.DeleteTaskActivity(taskID, id, actorID)
 }
 func (s *Service) ListDiscussion(ctx context.Context, workspaceID string) ([]DiscussionMessage, error) {
 	if workspaceID == "" {

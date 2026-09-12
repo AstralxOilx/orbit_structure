@@ -1101,6 +1101,195 @@
     min-height: 42px;
   }
 }
+
+/* Channel feed inspired by Microsoft Teams: messages stay in one readable
+   timeline instead of splitting the current user's posts into chat bubbles. */
+.discussion-page {
+  padding: 0;
+  background: var(--surface);
+}
+.discussion-channel-header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px max(18px, calc((100% - 920px) / 2 + 18px));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.discussion-channel-mark {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 7px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.discussion-channel-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+.discussion-channel-header p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.discussion-thread {
+  padding: 4px max(18px, calc((100% - 920px) / 2 + 18px)) 22px;
+  background: var(--surface);
+}
+.discussion-message-group {
+  width: 100%;
+}
+.discussion-day-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 21px 0 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.discussion-day-divider::before,
+.discussion-day-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+.discussion-day-divider span {
+  white-space: nowrap;
+}
+.discussion-message {
+  position: relative;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 5px;
+  transition: background 120ms ease;
+}
+.discussion-message:hover,
+.discussion-message:focus-within {
+  background: var(--surface-hover);
+}
+.discussion-message-meta {
+  gap: 8px;
+}
+.discussion-message-meta strong {
+  font-size: 12px;
+}
+.discussion-message-meta time {
+  font-size: 9px;
+}
+.discussion-you-badge {
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1;
+}
+.discussion-message p {
+  max-width: 760px;
+  margin-top: 3px;
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.discussion-message.is-own,
+.discussion-message.is-own .discussion-message-meta {
+  flex-direction: row;
+}
+.discussion-message.is-own {
+  border-left: 3px solid var(--accent);
+  padding-left: 9px;
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+.discussion-message.is-own:hover,
+.discussion-message.is-own:focus-within {
+  background: color-mix(in srgb, var(--accent-soft) 68%, transparent);
+}
+.discussion-message.is-own > div {
+  display: block;
+  align-items: unset;
+}
+.discussion-message.is-own p {
+  max-width: 760px;
+  padding: 0;
+  border-radius: 0;
+  color: var(--secondary);
+  background: transparent;
+}
+.discussion-message-actions {
+  position: absolute;
+  top: -14px;
+  right: 9px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: var(--popover-shadow);
+}
+.discussion-message-actions button {
+  padding: 4px 5px;
+}
+.discussion-edited {
+  margin-top: 2px;
+}
+.discussion-edit-box {
+  width: min(760px, 100%);
+  margin-top: 5px;
+}
+.discussion-composer {
+  position: static;
+  width: auto;
+  margin: 0;
+  padding: 12px max(18px, calc((100% - 920px) / 2 + 18px));
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.discussion-composer textarea {
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--canvas);
+}
+.discussion-composer:focus-within textarea {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.discussion-composer .button {
+  min-height: 40px;
+  border-radius: 5px;
+}
+@media (max-width: 600px) {
+  .discussion-channel-header,
+  .discussion-thread,
+  .discussion-composer {
+    padding-inline: 12px;
+  }
+  .discussion-channel-header {
+    padding-block: 12px;
+  }
+  .discussion-message {
+    padding-inline: 4px;
+  }
+  .discussion-composer {
+    position: static;
+    width: auto;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .discussion-composer textarea {
+    font-size: 16px;
+  }
+}
 .workspace-settings-form .form-label {
   margin: 0;
 }

@@ -38,6 +38,7 @@ import { taskStatusLabel } from "@/shared/i18n/task-copy";
 import { Dialog } from "@/shared/ui";
 import {
   createTaskActivity,
+  currentUser,
   deleteTaskActivity,
   listTaskActivities,
   listTaskActivityLog,
@@ -129,7 +130,25 @@ export default function TaskDrawer({
   const [activityActor, setActivityActor] = useState("all");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentBody, setEditingCommentBody] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("alex");
   const remoteTask = isRemoteTaskId(taskId);
+  useEffect(() => {
+    if (!remoteTask) {
+      setCurrentUserId("alex");
+      return;
+    }
+    let current = true;
+    void currentUser()
+      .then((user) => {
+        if (current) setCurrentUserId(user.id);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [remoteTask]);
   useEffect(() => {
     let current = true;
     if (!remoteTask) {
@@ -147,7 +166,12 @@ export default function TaskDrawer({
     };
     loadActivities();
     const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, (event) => {
-      if (event.type === "task_activity" && event.entityId === taskId) loadActivities();
+      if (
+        (event.type === "task_activity" || event.type === "task") &&
+        event.entityId === taskId
+      ) {
+        loadActivities();
+      }
     });
     return () => {
       current = false;
@@ -525,16 +549,20 @@ export default function TaskDrawer({
                     event.preventDefault();
                     const body = editingCommentBody.trim();
                     if (!body) return;
+                    setCommentSaving(true);
                     void updateTaskActivity(task.id, item.id, { detail: body })
                       .then((updated) => {
                         setApiActivities((current) => current.map((value) => value.id === item.id ? updated : value));
                         setEditingCommentId(null);
+                        setEditingCommentBody("");
+                        onNotify(t("workspace.messageUpdated"));
                       })
-                      .catch(() => undefined);
+                      .catch((error: unknown) => onNotify(error instanceof Error ? error.message : "Unable to update comment."))
+                      .finally(() => setCommentSaving(false));
                   }}>
                     <Input label="" value={editingCommentBody} autoFocus onChange={(event) => setEditingCommentBody(event.target.value)} />
-                    <button type="submit" className="button button-small">{t("workspace.save")}</button>
-                    <button type="button" className="button button-small" onClick={() => setEditingCommentId(null)}>{t("workspace.cancel")}</button>
+                    <button type="submit" className="button button-small" disabled={commentSaving || !editingCommentBody.trim()}>{t("workspace.save")}</button>
+                    <button type="button" className="button button-small" disabled={commentSaving} onClick={() => { setEditingCommentId(null); setEditingCommentBody(""); }}>{t("workspace.cancel")}</button>
                   </form>
                 ) : (
                   <>
@@ -543,15 +571,32 @@ export default function TaskDrawer({
                       <time>{new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(item.createdAt))}</time>
                     </p>
                     <span>{item.detail}</span>
-                    <div className="comment-actions">
-                      <button type="button" onClick={() => { setEditingCommentId(item.id); setEditingCommentBody(item.detail); }}>{t("workspace.edit")}</button>
-                      <button type="button" onClick={() => {
-                        if (!window.confirm(t("workspace.deleteActivityConfirm"))) return;
-                        void deleteTaskActivity(task.id, item.id)
-                          .then(() => setApiActivities((current) => current.filter((value) => value.id !== item.id)))
-                          .catch(() => undefined);
-                      }}>{t("workspace.deleteAction")}</button>
-                    </div>
+                    {item.actorId === currentUserId && (
+                      <div className="comment-actions">
+                        {deletingCommentId === item.id ? (
+                          <>
+                            <span>{t("workspace.deleteActivityConfirm")}</span>
+                            <button type="button" disabled={commentSaving} onClick={() => setDeletingCommentId(null)}>{t("workspace.cancel")}</button>
+                            <button type="button" disabled={commentSaving} onClick={() => {
+                              setCommentSaving(true);
+                              void deleteTaskActivity(task.id, item.id)
+                                .then(() => {
+                                  setApiActivities((current) => current.filter((value) => value.id !== item.id));
+                                  setDeletingCommentId(null);
+                                  onNotify(t("workspace.messageDeleted"));
+                                })
+                                .catch((error: unknown) => onNotify(error instanceof Error ? error.message : "Unable to delete comment."))
+                                .finally(() => setCommentSaving(false));
+                            }}>{t("workspace.deleteAction")}</button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" onClick={() => { setEditingCommentId(item.id); setEditingCommentBody(item.detail); }}>{t("workspace.edit")}</button>
+                            <button type="button" onClick={() => setDeletingCommentId(item.id)}>{t("workspace.deleteAction")}</button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -573,7 +618,49 @@ export default function TaskDrawer({
                     }).format(new Date(item.createdAt))}
                   </time>
                 </p>
-                <span>{item.body}</span>
+                {editingCommentId === item.id ? (
+                  <form className="comment-edit-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    const body = editingCommentBody.trim();
+                    if (!body) return;
+                    repository.update(task.id, {
+                      comments: task.comments.map((comment) => comment.id === item.id ? { ...comment, body } : comment),
+                    });
+                    setEditingCommentId(null);
+                    setEditingCommentBody("");
+                    onNotify(t("workspace.messageUpdated"));
+                  }}>
+                    <Input label="" value={editingCommentBody} autoFocus onChange={(event) => setEditingCommentBody(event.target.value)} />
+                    <button type="submit" className="button button-small" disabled={!editingCommentBody.trim()}>{t("workspace.save")}</button>
+                    <button type="button" className="button button-small" onClick={() => { setEditingCommentId(null); setEditingCommentBody(""); }}>{t("workspace.cancel")}</button>
+                  </form>
+                ) : (
+                  <>
+                    <span>{item.body}</span>
+                    {item.authorId === currentUserId && (
+                      <div className="comment-actions">
+                        {deletingCommentId === item.id ? (
+                          <>
+                            <span>{t("workspace.deleteActivityConfirm")}</span>
+                            <button type="button" onClick={() => setDeletingCommentId(null)}>{t("workspace.cancel")}</button>
+                            <button type="button" onClick={() => {
+                              repository.update(task.id, {
+                                comments: task.comments.filter((comment) => comment.id !== item.id),
+                              });
+                              setDeletingCommentId(null);
+                              onNotify(t("workspace.messageDeleted"));
+                            }}>{t("workspace.deleteAction")}</button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" onClick={() => { setEditingCommentId(item.id); setEditingCommentBody(item.body); }}>{t("workspace.edit")}</button>
+                            <button type="button" onClick={() => setDeletingCommentId(item.id)}>{t("workspace.deleteAction")}</button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
            </div>
           ))}

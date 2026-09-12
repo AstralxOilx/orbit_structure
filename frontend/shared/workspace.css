@@ -370,6 +370,14 @@ details > summary::-webkit-details-marker {
   background: var(--accent);
   margin-left: auto;
 }
+.project-favorite-star {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #d2a450;
+}
+.project-nav-item:has(.project-favorite-star) .active-project-dot {
+  margin-left: 7px;
+}
 .all-projects-link {
   display: flex;
   align-items: center;

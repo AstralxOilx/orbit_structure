@@ -558,14 +558,14 @@ func (r *Repository) CreateTaskActivity(taskID, actorID string, i application.Cr
 	return item, err
 }
 
-func (r *Repository) UpdateTaskActivity(id, actorID string, i application.UpdateTaskActivityInput) (application.TaskActivity, error) {
+func (r *Repository) UpdateTaskActivity(taskID, id, actorID string, i application.UpdateTaskActivityInput) (application.TaskActivity, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return application.TaskActivity{}, err
 	}
 	defer tx.Rollback()
 	var item application.TaskActivity
-	err = tx.QueryRow(`UPDATE task_activities SET detail=$3,updated_at=now() WHERE id=$1 AND actor_id=$2 AND deleted_at IS NULL RETURNING id,task_id,actor_id,(SELECT name FROM users WHERE id=actor_id),action,detail,created_at,updated_at`, id, actorID, i.Detail).Scan(&item.ID, &item.TaskID, &item.ActorID, &item.ActorName, &item.Action, &item.Detail, &item.CreatedAt, &item.UpdatedAt)
+	err = tx.QueryRow(`UPDATE task_activities SET detail=$4,updated_at=now() WHERE id=$1 AND task_id=$2 AND actor_id=$3 AND deleted_at IS NULL RETURNING id,task_id,actor_id,(SELECT name FROM users WHERE id=actor_id),action,detail,created_at,updated_at`, id, taskID, actorID, i.Detail).Scan(&item.ID, &item.TaskID, &item.ActorID, &item.ActorName, &item.Action, &item.Detail, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		return item, err
 	}
@@ -576,17 +576,17 @@ func (r *Repository) UpdateTaskActivity(id, actorID string, i application.Update
 	return item, err
 }
 
-func (r *Repository) DeleteTaskActivity(id, actorID string) error {
+func (r *Repository) DeleteTaskActivity(taskID, id, actorID string) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	var taskID, detail string
-	if err := tx.QueryRow(`UPDATE task_activities SET deleted_at=now(),updated_at=now() WHERE id=$1 AND actor_id=$2 AND deleted_at IS NULL RETURNING task_id,detail`, id, actorID).Scan(&taskID, &detail); err != nil {
+	var activityTaskID, detail string
+	if err := tx.QueryRow(`UPDATE task_activities SET deleted_at=now(),updated_at=now() WHERE id=$1 AND task_id=$2 AND actor_id=$3 AND deleted_at IS NULL RETURNING task_id,detail`, id, taskID, actorID).Scan(&activityTaskID, &detail); err != nil {
 		return err
 	}
-	if err := recordActivityLog(tx, taskID, actorID, "deleted", detail); err != nil {
+	if err := recordActivityLog(tx, activityTaskID, actorID, "deleted", detail); err != nil {
 		return err
 	}
 	return tx.Commit()

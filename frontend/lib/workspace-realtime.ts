@@ -20,6 +20,13 @@ function apiUrl() {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+type RealtimeSubscription = {
+  source: EventSource;
+  listeners: Set<(event: WorkspaceRealtimeEvent) => void>;
+};
+
+const subscriptions = new Map<string, RealtimeSubscription>();
+
 export function isRealtimeWorkspaceId(value: string) {
   return UUID_RE.test(value);
 }
@@ -31,17 +38,32 @@ export function subscribeWorkspaceRealtime(
   if (typeof window === "undefined" || !isRealtimeWorkspaceId(workspaceId)) {
     return () => undefined;
   }
-  const source = new EventSource(
-    `${apiUrl()}/api/workspaces/${encodeURIComponent(workspaceId)}/events`,
-    { withCredentials: true },
-  );
-  source.onmessage = (message) => {
-    try {
-      const event = JSON.parse(message.data) as WorkspaceRealtimeEvent;
-      if (event.workspaceId === workspaceId) onEvent(event);
-    } catch {
-      // Ignore malformed events and let EventSource reconnect normally.
+  let subscription = subscriptions.get(workspaceId);
+  if (!subscription) {
+    const source = new EventSource(
+      `${apiUrl()}/api/workspaces/${encodeURIComponent(workspaceId)}/events`,
+      { withCredentials: true },
+    );
+    subscription = { source, listeners: new Set() };
+    source.onmessage = (message) => {
+      try {
+        const event = JSON.parse(message.data) as WorkspaceRealtimeEvent;
+        if (event.workspaceId !== workspaceId) return;
+        subscription?.listeners.forEach((listener) => listener(event));
+      } catch {
+        // Ignore malformed events and let EventSource reconnect normally.
+      }
+    };
+    subscriptions.set(workspaceId, subscription);
+  }
+  subscription.listeners.add(onEvent);
+  return () => {
+    const current = subscriptions.get(workspaceId);
+    if (!current) return;
+    current.listeners.delete(onEvent);
+    if (current.listeners.size === 0) {
+      current.source.close();
+      subscriptions.delete(workspaceId);
     }
   };
-  return () => source.close();
 }

@@ -7,6 +7,7 @@ import { MemberAvatar as Avatar } from "@/features/workspace/ui/member-avatar";
 import {
   ArrowUpRight,
   Check,
+  Hash,
   MessageSquare,
   Search,
   Pencil,
@@ -385,9 +386,9 @@ export function DiscussionPage({
     if (remoteWorkspace) {
       let current = true;
       let latestRequest = 0;
-      const loadRemote = () => {
+      const loadRemote = (showLoading = false) => {
         const requestId = ++latestRequest;
-        setLoading(true);
+        if (showLoading) setLoading(true);
         setLoadError("");
         void listDiscussion(workspace.id)
           .then((items) => {
@@ -409,7 +410,7 @@ export function DiscussionPage({
           });
       };
       void currentUser().then((user) => { if (current) setCurrentUserId(user.id); }).catch(() => undefined);
-      loadRemote();
+      loadRemote(true);
       const unsubscribeRealtime = subscribeWorkspaceRealtime(workspace.id, (event) => {
         if (event.type === "discussion") loadRemote();
       });
@@ -612,6 +613,15 @@ export function DiscussionPage({
       className="discussion-page"
       aria-label={t("workspace.discussionLabel")}
     >
+      <header className="discussion-channel-header">
+        <div className="discussion-channel-mark" aria-hidden="true">
+          <Hash size={19} />
+        </div>
+        <div>
+          <h2>{workspace.name}</h2>
+          <p>{t("workspace.discussionLabel")}</p>
+        </div>
+      </header>
       <div className="discussion-thread">
         {!messages.length && (
           <div className="discussion-empty">
@@ -620,25 +630,44 @@ export function DiscussionPage({
             <p>{t("workspace.discussionDescription")}</p>
           </div>
         )}
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const member = MEMBERS.find((item) => item.id === message.authorId);
+          const previous = messages[index - 1];
+          const showDayDivider =
+            !previous ||
+            new Date(previous.createdAt).toDateString() !==
+              new Date(message.createdAt).toDateString();
           return (
-            <article
-              className={`discussion-message ${message.authorId === currentUserId ? "is-own" : ""}`}
-              key={message.id}
-            >
+            <div className="discussion-message-group" key={message.id}>
+              {showDayDivider && (
+                <div className="discussion-day-divider">
+                  <span>
+                    {new Intl.DateTimeFormat(locale, {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                    }).format(message.createdAt)}
+                  </span>
+                </div>
+              )}
+              <article
+                className={`discussion-message ${message.authorId === currentUserId ? "is-own" : ""}`}
+              >
               <Avatar id={message.authorId} size="sm" />
               <div>
-                <div className="discussion-message-meta">
-                  <strong>
-                    {message.authorId === currentUserId
-                      ? t("workspace.you")
-                      : (member?.name ?? t("workspace.teammate"))}
-                  </strong>
-                  <time dateTime={new Date(message.createdAt).toISOString()}>
+                  <div className="discussion-message-meta">
+                    <strong>
+                      {message.authorId === currentUserId
+                        ? (member?.name ?? t("workspace.you"))
+                        : (member?.name ?? t("workspace.teammate"))}
+                    </strong>
+                    {message.authorId === currentUserId && (
+                      <span className="discussion-you-badge">
+                        {t("workspace.you")}
+                      </span>
+                    )}
+                    <time dateTime={new Date(message.createdAt).toISOString()}>
                     {new Intl.DateTimeFormat(locale, {
-                      month: "short",
-                      day: "numeric",
                       hour: "numeric",
                       minute: "2-digit",
                     }).format(message.createdAt)}
@@ -730,7 +759,8 @@ export function DiscussionPage({
                   </div>
                 )}
               </div>
-            </article>
+              </article>
+            </div>
           );
         })}
       </div>
