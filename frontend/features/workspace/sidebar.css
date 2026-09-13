@@ -176,19 +176,19 @@
 }
 .workspace-logo-purple {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: transparent;
 }
 .workspace-logo-blue {
-  color: #5474af;
-  background: #edf3fc;
+  color: var(--accent);
+  background: transparent;
 }
 .workspace-logo-peach {
-  color: #b87852;
-  background: #fcf0e6;
+  color: var(--accent);
+  background: transparent;
 }
 .workspace-logo-green {
-  color: #54745c;
-  background: #eef4ed;
+  color: var(--accent);
+  background: transparent;
 }
 .workspace-settings-link {
   display: flex;

@@ -288,25 +288,24 @@
   font-size: 12px;
 }
 .auth-shell .auth-submit {
-  background: linear-gradient(110deg, #8056d9, #7045c4);
+  background: var(--auth-accent);
   color: #fff;
-  border: 1px solid #ba9af53b;
+  border: 1px solid var(--auth-accent);
   border-radius: 11px;
   font-size: 13px;
   box-shadow:
-    0 4px 16px #7c3aed22,
-    inset 0 1px 0 var(--auth-border);
+    0 1px 2px rgba(0, 0, 0, 0.05);
   transition:
     background-color 200ms,
     box-shadow 200ms,
     transform 200ms;
 }
 .auth-shell .auth-submit:hover {
-  background: linear-gradient(110deg, #9064e5, #7d50d2);
-  box-shadow: 0 5px 22px #7c3aed38;
+  background: var(--auth-link-hover);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .auth-shell .auth-submit:active {
-  transform: scale(0.985);
+  transform: none;
 }
 .auth-shell .auth-social {
   background: var(--auth-input);
@@ -320,7 +319,7 @@
 .auth-shell .auth-social:hover {
   background: var(--auth-tab);
   border-color: var(--auth-border-hover);
-  box-shadow: 0 4px 14px #0002;
+  box-shadow: none;
 }
 .auth-divider > span {
   flex: 1;
@@ -690,4 +689,64 @@
 }
 .auth-shell .theme-toggle:hover {
   background: var(--auth-tab);
+}
+
+/* Keep the route-specific auth layout aligned with the shared minimal system. */
+.auth-shell,
+.auth-shell:not(.auth-modal-scope) {
+  background: var(--auth-bg);
+  background-image: none;
+}
+.auth-shell::before,
+.auth-shell::after,
+.auth-story::before,
+.auth-form-panel::before {
+  content: none;
+}
+.auth-navbar {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  width: min(1440px, calc(100% - 48px));
+  max-width: 1440px;
+  min-height: 64px;
+  margin: 0;
+  padding-inline: clamp(20px, 4vw, 56px);
+  border-width: 1px;
+  border-radius: 12px;
+  border-color: var(--auth-border);
+  background: var(--auth-surface);
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+  backdrop-filter: none;
+  transform: translateX(-50%);
+}
+.auth-main {
+  padding-top: 80px !important;
+}
+.auth-form-panel {
+  justify-content: flex-start;
+  padding-top: clamp(28px, 5vh, 52px);
+}
+.auth-gradient-text {
+  background: none;
+  color: var(--auth-accent);
+}
+.auth-shell .ui-field input:focus {
+  border-color: var(--auth-ink);
+  box-shadow: 0 0 0 2px var(--auth-ink);
+}
+@media (max-width: 640px) {
+  .auth-navbar {
+    top: 10px;
+    width: calc(100% - 24px);
+    min-height: 50px;
+    margin: 0;
+    padding-inline: 16px;
+  }
+  .auth-main {
+    padding-top: 66px !important;
+  }
+  .auth-form-panel {
+    padding-top: 24px;
+  }
 }

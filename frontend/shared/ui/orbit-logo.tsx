@@ -11,44 +11,13 @@ export function OrbitLogo({ size = 32, className = "" }: OrbitLogoProps) {
       aria-hidden="true"
     >
       <svg viewBox="0 0 40 40" fill="none" role="presentation">
-        <defs>
-          <linearGradient
-            id="orbit-logo-fill"
-            x1="8"
-            y1="5"
-            x2="33"
-            y2="36"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stopColor="#8B7CFF" />
-            <stop offset="1" stopColor="#5B4BD8" />
-          </linearGradient>
-          <linearGradient
-            id="orbit-logo-ring"
-            x1="7"
-            y1="11"
-            x2="34"
-            y2="30"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stopColor="#C4BCFF" />
-            <stop offset="1" stopColor="#7C6CF3" />
-          </linearGradient>
-        </defs>
-        <rect
-          x="2"
-          y="2"
-          width="36"
-          height="36"
-          rx="12"
-          fill="url(#orbit-logo-fill)"
-        />
+        <rect x="3" y="3" width="34" height="34" rx="10" fill="currentColor" />
         <path
           d="M8.5 24.2C10.8 15.9 18.1 9.8 26.3 10.4c4.2.3 7.1 2 8.8 4.1"
-          stroke="url(#orbit-logo-ring)"
-          strokeWidth="2.1"
+          stroke="white"
+          strokeWidth="1.5"
           strokeLinecap="round"
-          opacity=".9"
+          opacity=".72"
         />
         <ellipse
           cx="20"
@@ -57,11 +26,10 @@ export function OrbitLogo({ size = 32, className = "" }: OrbitLogoProps) {
           ry="6.2"
           transform="rotate(-34 20 20)"
           stroke="white"
-          strokeWidth="1.8"
-          opacity=".96"
+          strokeWidth="1.5"
+          opacity=".92"
         />
-        <circle cx="20" cy="20" r="5.3" fill="white" opacity=".96" />
-        <circle cx="31.1" cy="10.2" r="2.35" fill="#F7F5FF" />
+        <circle cx="20" cy="20" r="4.6" fill="white" opacity=".92" />
       </svg>
     </span>
   );

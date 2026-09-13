@@ -1137,7 +1137,7 @@
   font-size: 10px;
 }
 .discussion-thread {
-  padding: 4px max(18px, calc((100% - 920px) / 2 + 18px)) 22px;
+  padding: 16px max(18px, calc((100% - 920px) / 2 + 18px)) 28px;
   background: var(--surface);
 }
 .discussion-message-group {
@@ -1163,9 +1163,9 @@
 }
 .discussion-message {
   position: relative;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 5px;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
   transition: background 120ms ease;
 }
 .discussion-message:hover,
@@ -1192,23 +1192,24 @@
 }
 .discussion-message p {
   max-width: 760px;
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--secondary);
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 .discussion-message.is-own,
 .discussion-message.is-own .discussion-message-meta {
   flex-direction: row;
 }
 .discussion-message.is-own {
-  border-left: 3px solid var(--accent);
-  padding-left: 9px;
-  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+  border-left: 0;
+  padding: 12px;
+  margin-block: 4px;
+  background: var(--accent-soft);
 }
 .discussion-message.is-own:hover,
 .discussion-message.is-own:focus-within {
-  background: color-mix(in srgb, var(--accent-soft) 68%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 78%, var(--surface));
 }
 .discussion-message.is-own > div {
   display: block;
@@ -1279,7 +1280,10 @@
     padding-block: 12px;
   }
   .discussion-message {
-    padding-inline: 4px;
+    padding-inline: 8px;
+  }
+  .discussion-message.is-own {
+    padding-inline: 8px;
   }
   .discussion-composer {
     position: static;

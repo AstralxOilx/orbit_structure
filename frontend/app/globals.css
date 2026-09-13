@@ -11,6 +11,7 @@
 @import "../features/workspace/catalog.css";
 @import "../shared/ui/date-input.css";
 @import "../shared/theme/scrollbars.css";
+@import "../shared/theme/minimal.css";
 
 html,
 body {

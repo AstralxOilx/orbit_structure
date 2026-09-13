@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_Thai } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Noto_Sans_Thai,
+  Space_Grotesk,
+} from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/theme/theme-provider";
 import { I18nProvider } from "@/shared/i18n/provider";
@@ -21,6 +26,12 @@ const notoThai = Noto_Sans_Thai({
   display: "swap",
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Orbit — A little progress, every day",
   description:
@@ -32,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${notoThai.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${notoThai.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <body>
         <ThemeProvider>

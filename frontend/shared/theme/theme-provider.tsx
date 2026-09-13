@@ -9,7 +9,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     <NextThemeProvider
       attribute="data-theme"
       storageKey="orbit.theme"
-      defaultTheme="dark"
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
     >

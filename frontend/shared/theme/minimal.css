@@ -1,0 +1,321 @@
+/* Shared minimal system: hierarchy is created with space, type, and restraint. */
+:root {
+  color-scheme: light;
+  --canvas: #f9fafb;
+  --surface: #ffffff;
+  --sidebar: #ffffff;
+  --column-bg: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --ink: #111827;
+  --secondary: #374151;
+  --muted: #6b7280;
+  --faint: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --card-border: #e5e7eb;
+  --card-hover: #d1d5db;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-border: #bfdbfe;
+  --accent-foreground: #ffffff;
+  --green-soft: #ecfdf5;
+  --note-bg: #f8fafc;
+  --note-border: #e2e8f0;
+  --scrollbar: #d1d5db;
+  --popover-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+  --glow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --glow-strong: 0 4px 12px rgba(17, 24, 39, 0.06);
+  --cosmic-gradient: #111827;
+  --grid-line: transparent;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #111827;
+  --surface: #18212f;
+  --sidebar: #111827;
+  --column-bg: #151e2a;
+  --surface-hover: #223044;
+  --ink: #f9fafb;
+  --secondary: #e5e7eb;
+  --muted: #9ca3af;
+  --faint: #6b7280;
+  --border: #2d3748;
+  --border-strong: #465365;
+  --card-border: #2d3748;
+  --card-hover: #465365;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: rgba(96, 165, 250, 0.14);
+  --accent-border: rgba(96, 165, 250, 0.38);
+  --accent-foreground: #111827;
+  --green-soft: rgba(16, 185, 129, 0.12);
+  --note-bg: #1e293b;
+  --note-border: #334155;
+  --scrollbar: #475569;
+  --popover-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+body,
+.workspace,
+.auth-shell {
+  background: var(--canvas);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-noto-thai), var(--font-geist-sans), Inter, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.brand,
+.auth-brand {
+  font-family: var(--font-geist-sans), var(--font-noto-thai), Inter, system-ui, sans-serif;
+}
+
+/* All Lucide icons share the same quiet, modern line treatment. */
+.lucide {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.orbit-logo {
+  color: var(--accent);
+}
+
+.icon-button .lucide,
+.workspace .nav-item .lucide,
+.workspace .toolbar-button .lucide,
+.workspace .button .lucide,
+.auth-shell .auth-social .lucide {
+  color: currentColor;
+}
+
+.workspace::before,
+.auth-shell::before,
+.auth-shell::after,
+.auth-story::before,
+.auth-form-panel::before {
+  content: none;
+}
+
+.workspace .sidebar,
+.workspace .topbar,
+.workspace .workspace-main,
+.workspace .board-column,
+.workspace .view-content,
+.auth-shell,
+.auth-main,
+.auth-story {
+  background: var(--canvas);
+  backdrop-filter: none;
+}
+
+.workspace .sidebar {
+  border-right-color: var(--border);
+}
+
+.workspace .topbar {
+  height: 64px;
+  border-bottom-color: var(--border);
+}
+
+.workspace .page-heading {
+  padding-top: 32px;
+}
+
+.workspace .page-title-row h1,
+.workspace .page-heading h1 {
+  color: var(--ink);
+  background: none;
+  text-shadow: none;
+}
+
+.workspace .page-heading-main > div > p {
+  margin-top: 4px;
+}
+
+.workspace .task-card,
+.workspace .list-row,
+.workspace .timeline-row,
+.workspace .member-card,
+.workspace .inbox-item,
+.workspace .dialog,
+.workspace .notification-popover,
+.workspace .toast,
+.dialog,
+.auth-tabs,
+.auth-navbar,
+.auth-shell .auth-social {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--glow);
+  backdrop-filter: none;
+}
+
+.workspace .task-card,
+.workspace .list-row,
+.workspace .timeline-row,
+.workspace .member-card,
+.workspace .inbox-item {
+  padding: 16px;
+}
+
+.workspace .task-card:hover,
+.workspace .list-row:hover,
+.workspace .timeline-row:hover,
+.workspace .member-card:hover,
+.workspace .inbox-item:hover {
+  border-color: var(--card-hover);
+  box-shadow: var(--glow-strong);
+  transform: none;
+}
+
+.workspace .board-column {
+  padding: 0 8px;
+  border: 0;
+}
+
+.workspace .column-scroll {
+  padding: 4px 4px 20px;
+}
+
+.workspace .button,
+.ui-button-outline,
+.ui-button-ghost,
+.icon-button,
+.auth-shell .auth-social {
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.workspace .button:hover,
+.ui-button-outline:hover,
+.ui-button-ghost:hover,
+.icon-button:hover,
+.auth-shell .auth-social:hover {
+  background: var(--surface-hover);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.workspace .button-primary,
+.ui-button-primary,
+.auth-shell .auth-submit {
+  border-color: var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  box-shadow: none;
+}
+
+.workspace .button-primary:hover,
+.ui-button-primary:hover,
+.auth-shell .auth-submit:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+.workspace .button:active,
+.ui-button-primary:active,
+.ui-button-outline:active,
+.ui-button-ghost:active,
+.auth-shell .auth-submit:active,
+.auth-shell .auth-social:active {
+  transform: none;
+}
+
+.ui-input,
+.ui-textarea,
+.ui-select,
+.workspace input,
+.workspace textarea,
+.workspace select,
+.auth-shell .ui-field input {
+  border-color: var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.ui-input:focus,
+.ui-textarea:focus,
+.ui-select:focus,
+.workspace input:focus,
+.workspace textarea:focus,
+.workspace select:focus,
+.auth-shell .ui-field input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.workspace .tag,
+.workspace .on-track-badge,
+.workspace .column-count,
+.workspace .notification-icon {
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+
+.workspace .task-toolbar,
+.workspace .project-context,
+.workspace .active-filters {
+  border-color: transparent;
+}
+
+.auth-navbar {
+  position: static;
+  width: 100%;
+  max-width: 1240px;
+  min-height: 64px;
+  margin: 16px auto 0;
+  transform: none;
+}
+
+.auth-tabs {
+  padding: 4px;
+}
+
+.auth-tab-highlight {
+  border-color: var(--border);
+  background: var(--surface-hover);
+  box-shadow: none;
+}
+
+.auth-gradient-text {
+  background: none;
+  color: var(--accent);
+}
+
+.auth-shell .auth-text-link,
+.auth-demo-link,
+.auth-brand .orbit-logo,
+.auth-brand-dot {
+  color: var(--accent);
+}
+
+.dialog::backdrop,
+.workspace .dialog::backdrop {
+  background: rgba(17, 24, 39, 0.2);
+  backdrop-filter: blur(2px);
+}
+
+@media (max-width: 900px) {
+  .workspace .sidebar { background: var(--surface); }
+}

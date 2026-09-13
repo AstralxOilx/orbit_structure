@@ -13,38 +13,38 @@ test("one theme preference survives auth tab changes, reload and workspace navig
       errors.push(message.text());
   });
   await page.goto("/auth");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page
-    .getByRole("button", { name: "Switch to light theme", exact: true })
-    .click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page
+    .getByRole("button", { name: "Switch to dark theme", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".auth-shell").first()).toHaveCSS(
     "background-color",
-    "rgb(252, 251, 254)",
+    "rgb(17, 24, 39)",
   );
   await page.getByRole("tab", { name: "Sign Up", exact: true }).click();
   await page.getByLabel("Full name", { exact: true }).fill("Shared theme test");
   await page
-    .getByRole("button", { name: "Switch to dark theme", exact: true })
+    .getByRole("button", { name: "Switch to light theme", exact: true })
     .click();
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue(
     "Shared theme test",
   );
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page
-    .getByRole("button", { name: "Switch to light theme", exact: true })
+    .getByRole("button", { name: "Switch to dark theme", exact: true })
     .click();
   await page
     .getByRole("link", { name: "Explore the workspace", exact: true })
     .click();
   await expect(page).toHaveURL(/\/workspace/);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page
-    .getByRole("button", { name: "Switch to dark theme", exact: true })
+    .getByRole("button", { name: "Switch to light theme", exact: true })
     .click();
   await page.goto("/auth");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   expect(errors).toEqual([]);
 });
 
@@ -54,15 +54,15 @@ test("stored light preference and changes in another tab are shared", async ({
 }) => {
   await page.goto("/auth");
   await page
-    .getByRole("button", { name: "Switch to light theme", exact: true })
+    .getByRole("button", { name: "Switch to dark theme", exact: true })
     .click();
   const other = await context.newPage();
   await other.goto("/auth");
-  await expect(other.locator("html")).toHaveAttribute("data-theme", "light");
-  await page
-    .getByRole("button", { name: "Switch to dark theme", exact: true })
-    .click();
   await expect(other.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page
+    .getByRole("button", { name: "Switch to light theme", exact: true })
+    .click();
+  await expect(other.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
 test("shared appearance selector can follow the operating system", async ({
@@ -90,10 +90,10 @@ test("light and dark login, signup and shared dialog remain accessible", async (
   page,
 }) => {
   await page.goto("/auth");
-  for (const theme of ["dark", "light"]) {
-    if (theme === "light")
+  for (const theme of ["light", "dark"]) {
+    if (theme === "dark")
       await page
-        .getByRole("button", { name: "Switch to light theme", exact: true })
+        .getByRole("button", { name: "Switch to dark theme", exact: true })
         .click();
     for (const mode of ["Login", "Sign Up"]) {
       await page.getByRole("tab", { name: mode, exact: true }).click();
